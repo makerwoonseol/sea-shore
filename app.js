@@ -59,44 +59,33 @@ Tube.prototype.isOut = function () {
   return totalY < 0;
 };
 
+// 경량화된 그림자 계산
 Tube.prototype.drawShadowRing = function (ctx) {
   var outer = this.radius + 3;
   var inner = 28;
   var deg = 0;
   var rad = 0;
-  var n1 = 0;
-  var n2 = 0;
   var noise = 0;
   var r = 0;
-  var x = 0;
-  var y = 0;
 
   ctx.beginPath();
-  for (deg = 0; deg <= 360; deg = deg + 6) {
+  for (deg = 0; deg <= 360; deg = deg + 20) {
+    // 연산 주기 20도로 완화 (경량화)
     rad = deg * Math.PI * 0.005555555555555556;
-    n1 = Math.sin(rad * 5 + this.time * 2.5) * 2;
-    n2 = Math.sin(rad * 8 - this.time * 3.2) * 1.2;
-    noise = n1 + n2;
+    noise = Math.sin(rad * 5 + this.time * 2.5) * 2;
     r = outer + noise;
-    x = Math.cos(rad) * r;
-    y = Math.sin(rad) * r;
-
     if (deg === 0) {
-      ctx.moveTo(x, y);
+      ctx.moveTo(Math.cos(rad) * r, Math.sin(rad) * r);
     } else {
-      ctx.lineTo(x, y);
+      ctx.lineTo(Math.cos(rad) * r, Math.sin(rad) * r);
     }
   }
   ctx.closePath();
 
-  for (deg = 360; deg >= 0; deg = deg - 6) {
+  for (deg = 360; deg >= 0; deg = deg - 20) {
     rad = deg * Math.PI * 0.005555555555555556;
-    noise = Math.sin(rad * 4 + this.time * 1.7) * 1.5;
-    r = inner + noise;
-    x = Math.cos(rad) * r;
-    y = Math.sin(rad) * r;
-
-    ctx.lineTo(x, y);
+    r = inner + Math.sin(rad * 4 + this.time * 1.7) * 1.5;
+    ctx.lineTo(Math.cos(rad) * r, Math.sin(rad) * r);
   }
   ctx.closePath();
   ctx.fill();
@@ -109,15 +98,12 @@ Tube.prototype.draw = function (ctx) {
   ctx.save();
   ctx.translate(this.x + 12, this.y + 12);
   ctx.rotate(this.rotation * 0.3);
-
   ctx.globalAlpha = 0.22;
   ctx.fillStyle = "#001122";
-
   this.drawShadowRing(ctx);
   ctx.restore();
 
   ctx.globalAlpha = 1;
-
   ctx.save();
   ctx.translate(this.x, this.y);
   ctx.rotate(this.rotation);
@@ -167,15 +153,11 @@ function getEventPos(e) {
   if (e.changedTouches && e.changedTouches.length > 0) {
     return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
   }
-  var cx = e.clientX || 0;
-  var cy = e.clientY || 0;
-  return { x: cx, y: cy };
+  return { x: e.clientX || 0, y: e.clientY || 0 };
 }
 
 function handleStart(event) {
-  if (!globalDrawingInstance) {
-    return;
-  }
+  if (!globalDrawingInstance) return;
   globalDrawingInstance.isDrawing = true;
   var pos = getEventPos(event);
   globalDrawingInstance.mouse.x = pos.x;
@@ -185,24 +167,17 @@ function handleStart(event) {
 }
 
 function handleMove(event) {
-  if (!globalDrawingInstance) {
-    return;
-  }
+  if (!globalDrawingInstance) return;
   var pos = getEventPos(event);
-  var dx = 0;
-  var dy = 0;
-  var i = 0;
-  var x = 0;
-  var y = 0;
-
   globalDrawingInstance.mouse.x = pos.x;
   globalDrawingInstance.mouse.y = pos.y;
   if (globalDrawingInstance.isDrawing === true) {
-    dx = globalDrawingInstance.mouse.x - globalDrawingInstance.lastMouse.x;
-    dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
-    for (i = 0; i <= 10; i = i + 1) {
-      x = globalDrawingInstance.lastMouse.x + dx * 0.1 * i;
-      y = globalDrawingInstance.lastMouse.y + dy * 0.1 * i;
+    var dx = globalDrawingInstance.mouse.x - globalDrawingInstance.lastMouse.x;
+    var dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
+    for (var i = 0; i <= 5; i = i + 1) {
+      // 브러시 루프 5회로 단축
+      var x = globalDrawingInstance.lastMouse.x + dx * 0.2 * i;
+      var y = globalDrawingInstance.lastMouse.y + dy * 0.2 * i;
       globalDrawingInstance.drawBrush(x, y);
     }
   }
@@ -211,17 +186,12 @@ function handleMove(event) {
 }
 
 function handleEnd() {
-  if (!globalDrawingInstance) {
-    return;
-  }
+  if (!globalDrawingInstance) return;
   globalDrawingInstance.isDrawing = false;
 }
 
 function Drawing(ctx) {
   this.ctx = ctx;
-  this.ctx.lineWidth = 8;
-  this.ctx.lineCap = "round";
-  this.ctx.lineJoin = "round";
   this.hasDrawn = false;
   this.lastDrawTime = 0;
   this.mouse = { x: 0, y: 0 };
@@ -245,32 +215,16 @@ Drawing.prototype.resize = function (stageWidth, stageHeight) {
 };
 
 Drawing.prototype.drawBrush = function (x, y) {
-  var i = 0;
-  var px = 0;
-  var py = 0;
-  var radius = 10;
-  var dx = 0;
-  var dy = 0;
-  var distSq = 0;
-  var radSq = radius * radius;
+  var px = x + Math.random() * 14 - 7;
+  var py = y + Math.random() * 14 - 7;
 
-  for (i = 0; i <= 10; i = i + 1) {
-    px = x + Math.random() * 20 - 10;
-    py = y + Math.random() * 20 - 10;
-    dx = px - x;
-    dy = py - y;
-    distSq = dx * dx + dy * dy;
+  this.hasDrawn = true;
+  this.lastDrawTime = new Date().getTime();
 
-    this.hasDrawn = true;
-    this.lastDrawTime = new Date().getTime();
-
-    if (distSq <= radSq) {
-      this.ctx.beginPath();
-      this.ctx.arc(px, py, Math.random() * 2 + 0.1, 0, Math.PI * 2, false);
-      this.ctx.fillStyle = "#e8dfc8";
-      this.ctx.fill();
-    }
-  }
+  this.ctx.beginPath();
+  this.ctx.arc(px, py, Math.random() * 2 + 0.5, 0, Math.PI * 2, false);
+  this.ctx.fillStyle = "#e8dfc8";
+  this.ctx.fill();
 };
 
 Drawing.prototype.clear = function () {
@@ -294,8 +248,6 @@ function Wave(index, totalPoints, color) {
 Wave.prototype.resize = function (stageWidth, stageHeight) {
   this.stageWidth = stageWidth;
   this.stageHeight = stageHeight;
-  this.centerX = stageWidth * 0.5;
-  this.centerY = stageHeight * 0.5;
   var count = this.totalPoints - 1;
   this.pointGap = this.stageWidth / count;
   this.init();
@@ -303,11 +255,14 @@ Wave.prototype.resize = function (stageWidth, stageHeight) {
 
 Wave.prototype.init = function () {
   var i = 0;
-  var speed = 0;
   this.points = [];
   for (i = 0; i < this.totalPoints; i = i + 1) {
-    speed = Math.random() * 0.3333333 + 0.4;
-    this.points[i] = new Point(this.index + i, this.pointGap * i, 0, speed);
+    this.points[i] = new Point(
+      this.index + i,
+      this.pointGap * i,
+      0,
+      Math.random() * 0.333 + 0.4,
+    );
   }
 };
 
@@ -341,7 +296,6 @@ Wave.prototype.draw = function (ctx) {
   var i = 0;
   var j = 0;
   var k = 0;
-  var trail = null;
   var arrivedCount = 0;
   var trailPoints = [];
 
@@ -350,10 +304,15 @@ Wave.prototype.draw = function (ctx) {
     return;
   }
 
+  // 잔상 최대 3개로 제한 (메모리 누수 방지)
+  if (this.trails.length > 3) {
+    this.trails.shift();
+  }
+
   for (i = this.trails.length - 1; i >= 0; i = i - 1) {
-    trail = this.trails[i];
+    var trail = this.trails[i];
     this.drawWave(ctx, trail.points, trail.alpha, this.color);
-    trail.alpha = trail.alpha - 0.001;
+    trail.alpha = trail.alpha - 0.002;
     if (trail.alpha <= 0) {
       this.trails.splice(i, 1);
     }
@@ -368,16 +327,20 @@ Wave.prototype.draw = function (ctx) {
 
   this.drawWave(ctx, this.points, 0.99, this.color);
 
+  // 핵심 수정: 도착 시 무한 실행 및 메모리 누수 방지
   if (arrivedCount === this.totalPoints) {
-    for (k = 0; k < this.totalPoints; k = k + 1) {
-      trailPoints.push({ x: this.points[k].x, y: this.points[k].y });
-    }
     if (this.isResetWave) {
       this.resetFinished = true;
       this.isResetWave = false;
+      this.makeWave(); // 바닥 도착 후 상태를 재설정하여 무한 루프 차단!
       return;
     }
+
+    for (k = 0; k < this.totalPoints; k = k + 1) {
+      trailPoints.push({ x: this.points[k].x, y: this.points[k].y });
+    }
     this.trails.push({ points: trailPoints, alpha: 0.5 });
+
     if (this.isBack === false) {
       this.goBack();
       this.isBack = true;
@@ -444,9 +407,8 @@ WaveGroup.prototype.resize = function (stageWidth, stageHeight) {
 
 WaveGroup.prototype.update = function () {
   var i = 0;
-  var tube = null;
   for (i = this.tubes.length - 1; i >= 0; i = i - 1) {
-    tube = this.tubes[i];
+    var tube = this.tubes[i];
     tube.update(this.isResetting);
     if (tube.isOut()) {
       this.tubes.splice(i, 1);
@@ -456,68 +418,47 @@ WaveGroup.prototype.update = function () {
 
 WaveGroup.prototype.draw = function (ctx, waveReset) {
   var i = 0;
-  var j = 0;
-  var k = 0;
-  var m = 0;
-  var n = 0;
-  var p = 0;
   var radius = 50;
   var availWidth = 0;
   var x = 0;
   var y = -30;
-  var closestPoint = null;
-  var closestDistance = 999999;
-  var point = null;
-  var distance = 0;
-  var anyResetting = false;
 
   for (i = 0; i < this.waves.length; i = i + 1) {
     this.waves[i].draw(ctx);
   }
 
-  for (j = 0; j < this.tubes.length; j = j + 1) {
-    this.tubes[j].draw(ctx);
+  for (i = 0; i < this.tubes.length; i = i + 1) {
+    this.tubes[i].draw(ctx);
   }
 
   if (waveReset && !this.isResetting) {
     this.isResetting = true;
     this.hasTriggeredClear = false;
-    for (k = 0; k < this.totalWaves; k = k + 1) {
-      this.waves[k].resetWave();
+    for (i = 0; i < this.totalWaves; i = i + 1) {
+      this.waves[i].resetWave();
     }
 
     availWidth = this.stageWidth - radius * 2;
     x = Math.random() * availWidth + radius;
-
-    if (this.waves[2] && this.waves[2].points) {
-      for (m = 0; m < this.waves[2].points.length; m = m + 1) {
-        point = this.waves[2].points[m];
-        distance = Math.abs(x - point.x);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestPoint = point;
-        }
-      }
-    }
-    this.tubes.push(new Tube(x, y, radius, closestPoint));
+    this.tubes.push(new Tube(x, y, radius, null));
   }
 
   this.resetFinished = false;
 
   if (this.isResetting) {
-    for (n = 0; n < this.totalWaves; n = n + 1) {
-      if (this.waves[n].resetFinished) {
+    for (i = 0; i < this.totalWaves; i = i + 1) {
+      if (this.waves[i].resetFinished) {
         if (!this.hasTriggeredClear) {
           this.resetFinished = true;
           this.hasTriggeredClear = true;
         }
-        this.waves[n].resetFinished = false;
+        this.waves[i].resetFinished = false;
       }
     }
 
-    anyResetting = false;
-    for (p = 0; p < this.totalWaves; p = p + 1) {
-      if (this.waves[p].isResetWave) {
+    var anyResetting = false;
+    for (i = 0; i < this.totalWaves; i = i + 1) {
+      if (this.waves[i].isResetWave) {
         anyResetting = true;
         break;
       }
@@ -533,15 +474,11 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
 var globalAppInstance = null;
 
 function onAppResize() {
-  if (globalAppInstance) {
-    globalAppInstance.resize();
-  }
+  if (globalAppInstance) globalAppInstance.resize();
 }
 
 function onAppFrame(t) {
-  if (globalAppInstance) {
-    globalAppInstance.animate(t);
-  }
+  if (globalAppInstance) globalAppInstance.animate(t);
 }
 
 function App() {
@@ -562,25 +499,23 @@ function App() {
   globalAppInstance = this;
 
   window.addEventListener("resize", onAppResize, false);
-
   this.resize();
 
   window.requestAnimationFrame(onAppFrame);
 }
 
+// 1배율 표준 해상도로 전면 변경 (메모리 사용량 75% 감소)
 App.prototype.resize = function () {
   var w = window.innerWidth || document.body.clientWidth || 800;
   var h = window.innerHeight || document.body.clientHeight || 600;
   this.stageWidth = w;
   this.stageHeight = h;
 
-  this.waveCanvas.width = this.stageWidth * 2;
-  this.waveCanvas.height = this.stageHeight * 2;
-  this.waveCtx.scale(2, 2);
+  this.waveCanvas.width = this.stageWidth;
+  this.waveCanvas.height = this.stageHeight;
 
-  this.drawCanvas.width = this.stageWidth * 2;
-  this.drawCanvas.height = this.stageHeight * 2;
-  this.drawCtx.scale(2, 2);
+  this.drawCanvas.width = this.stageWidth;
+  this.drawCanvas.height = this.stageHeight;
 
   this.waveGroup.resize(this.stageWidth, this.stageHeight);
   this.drawing.resize(this.stageWidth, this.stageHeight);
@@ -588,11 +523,10 @@ App.prototype.resize = function () {
 
 App.prototype.animate = function (t) {
   var waveReset = false;
-  var idleTime = 0;
   var now = new Date().getTime();
 
   if (this.drawing.hasDrawn === true) {
-    idleTime = now - this.drawing.lastDrawTime;
+    var idleTime = now - this.drawing.lastDrawTime;
     waveReset = idleTime > 5000;
   }
 
