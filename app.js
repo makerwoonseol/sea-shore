@@ -1,4 +1,4 @@
-// requestAnimationFrame 폴리필
+// 0. requestAnimationFrame 폴리필
 window.requestAnimationFrame =
   window.requestAnimationFrame ||
   window.webkitRequestAnimationFrame ||
@@ -41,7 +41,10 @@ function Tube(x, y, radius, point) {
 }
 
 Tube.prototype.update = function (isResetting) {
-  var speedVal = this.point ? this.point.speed : 1;
+  var speedVal = 1;
+  if (this.point) {
+    speedVal = this.point.speed;
+  }
   if (isResetting) {
     this.y += 1.8;
   } else {
@@ -52,13 +55,19 @@ Tube.prototype.update = function (isResetting) {
 };
 
 Tube.prototype.isOut = function () {
-  return this.y + this.radius * 2 < 0;
+  var totalY = this.y + this.radius * 2;
+  return totalY < 0;
 };
 
 Tube.prototype.drawShadowRing = function (ctx) {
   var outer = this.radius + 3;
   var inner = 28;
-  var deg, rad, noise, r, x, y;
+  var deg = 0;
+  var rad = 0;
+  var noise = 0;
+  var r = 0;
+  var x = 0;
+  var y = 0;
 
   ctx.beginPath();
   for (deg = 0; deg <= 360; deg += 6) {
@@ -165,43 +174,49 @@ function Drawing(ctx) {
     return { x: e.clientX || 0, y: e.clientY || 0 };
   }
 
-  var onStart = function (event) {
+  function handleStart(event) {
     self.isDrawing = true;
     var pos = getPos(event);
     self.mouse.x = pos.x;
     self.mouse.y = pos.y;
     self.lastMouse.x = pos.x;
     self.lastMouse.y = pos.y;
-  };
+  }
 
-  var onMove = function (event) {
+  function handleMove(event) {
     var pos = getPos(event);
+    var dx = 0;
+    var dy = 0;
+    var i = 0;
+    var x = 0;
+    var y = 0;
+
     self.mouse.x = pos.x;
     self.mouse.y = pos.y;
     if (self.isDrawing === true) {
-      var dx = self.mouse.x - self.lastMouse.x;
-      var dy = self.mouse.y - self.lastMouse.y;
-      for (var i = 0; i <= 10; i++) {
-        var x = self.lastMouse.x + (dx / 10) * i;
-        var y = self.lastMouse.y + (dy / 10) * i;
+      dx = self.mouse.x - self.lastMouse.x;
+      dy = self.mouse.y - self.lastMouse.y;
+      for (i = 0; i <= 10; i++) {
+        x = self.lastMouse.x + (dx / 10) * i;
+        y = self.lastMouse.y + (dy / 10) * i;
         self.drawBrush(x, y);
       }
     }
     self.lastMouse.x = self.mouse.x;
     self.lastMouse.y = self.mouse.y;
-  };
+  }
 
-  var onEnd = function () {
+  function handleEnd() {
     self.isDrawing = false;
-  };
+  }
 
-  window.addEventListener("mousedown", onStart, false);
-  window.addEventListener("mousemove", onMove, false);
-  window.addEventListener("mouseup", onEnd, false);
+  window.addEventListener("mousedown", handleStart, false);
+  window.addEventListener("mousemove", handleMove, false);
+  window.addEventListener("mouseup", handleEnd, false);
 
-  window.addEventListener("touchstart", onStart, false);
-  window.addEventListener("touchmove", onMove, false);
-  window.addEventListener("touchend", onEnd, false);
+  window.addEventListener("touchstart", handleStart, false);
+  window.addEventListener("touchmove", handleMove, false);
+  window.addEventListener("touchend", handleEnd, false);
 }
 
 Drawing.prototype.resize = function (stageWidth, stageHeight) {
@@ -210,15 +225,26 @@ Drawing.prototype.resize = function (stageWidth, stageHeight) {
 };
 
 Drawing.prototype.drawBrush = function (x, y) {
-  for (var i = 0; i <= 10; i++) {
-    var px = x + Math.random() * 20 - 10;
-    var py = y + Math.random() * 20 - 10;
-    var radius = 10;
-    var dx = px - x;
-    var dy = py - y;
+  var i = 0;
+  var px = 0;
+  var py = 0;
+  var radius = 10;
+  var dx = 0;
+  var dy = 0;
+  var distSq = 0;
+  var radSq = radius * radius;
+
+  for (i = 0; i <= 10; i++) {
+    px = x + Math.random() * 20 - 10;
+    py = y + Math.random() * 20 - 10;
+    dx = px - x;
+    dy = py - y;
+    distSq = dx * dx + dy * dy;
+
     this.hasDrawn = true;
-    this.lastDrawTime = Date.now();
-    if (dx * dx + dy * dy <= radius * radius) {
+    this.lastDrawTime = new Date().getTime();
+
+    if (distSq <= radSq) {
       this.ctx.beginPath();
       this.ctx.arc(px, py, Math.random() * 2 + 0.1, 0, Math.PI * 2, false);
       this.ctx.fillStyle = "#e8dfc8";
@@ -255,8 +281,9 @@ Wave.prototype.resize = function (stageWidth, stageHeight) {
 };
 
 Wave.prototype.init = function () {
+  var i = 0;
   this.points = [];
-  for (var i = 0; i < this.totalPoints; i++) {
+  for (i = 0; i < this.totalPoints; i++) {
     this.points[i] = new Point(
       this.index + i,
       this.pointGap * i,
@@ -267,22 +294,25 @@ Wave.prototype.init = function () {
 };
 
 Wave.prototype.makeWave = function () {
-  for (var i = 0; i < this.totalPoints; i++) {
+  var i = 0;
+  for (i = 0; i < this.totalPoints; i++) {
     this.points[i].targetY = 200 + Math.random() * 200;
     this.points[i].speed = Math.random() * 1.2 + 1;
   }
 };
 
 Wave.prototype.goBack = function () {
-  for (var i = 0; i < this.totalPoints; i++) {
+  var i = 0;
+  for (i = 0; i < this.totalPoints; i++) {
     this.points[i].targetY = 0;
     this.points[i].speed = Math.random() * 2 + 0.4;
   }
 };
 
 Wave.prototype.resetWave = function () {
+  var i = 0;
   this.isResetWave = true;
-  for (var i = 0; i < this.totalPoints; i++) {
+  for (i = 0; i < this.totalPoints; i++) {
     this.points[i].y = 0;
     this.points[i].targetY = this.stageHeight;
     this.points[i].speed = Math.random() * 1.2 + 1;
@@ -290,20 +320,27 @@ Wave.prototype.resetWave = function () {
 };
 
 Wave.prototype.draw = function (ctx) {
-  var i, j, k;
+  var i = 0;
+  var j = 0;
+  var k = 0;
+  var trail = null;
+  var arrivedCount = 0;
+  var trailPoints = [];
+
   if (this.delay > 0) {
     this.delay--;
     return;
   }
+
   for (i = this.trails.length - 1; i >= 0; i--) {
-    var trail = this.trails[i];
+    trail = this.trails[i];
     this.drawWave(ctx, trail.points, trail.alpha, this.color);
     trail.alpha -= 0.001;
     if (trail.alpha <= 0) {
       this.trails.splice(i, 1);
     }
   }
-  var arrivedCount = 0;
+
   for (j = 0; j < this.totalPoints; j++) {
     if (this.points[j].y === this.points[j].targetY) {
       arrivedCount++;
@@ -314,7 +351,6 @@ Wave.prototype.draw = function (ctx) {
   this.drawWave(ctx, this.points, 0.99, this.color);
 
   if (arrivedCount === this.totalPoints) {
-    var trailPoints = [];
     for (k = 0; k < this.totalPoints; k++) {
       trailPoints.push({ x: this.points[k].x, y: this.points[k].y });
     }
@@ -335,16 +371,21 @@ Wave.prototype.draw = function (ctx) {
 };
 
 Wave.prototype.drawWave = function (ctx, points, alpha, waveColor) {
+  var prevX = points[0].x;
+  var prevY = points[0].y;
+  var i = 1;
+  var cx = 0;
+  var cy = 0;
+
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.beginPath();
-  var prevX = points[0].x;
-  var prevY = points[0].y;
   ctx.moveTo(prevX, prevY);
   ctx.fillStyle = waveColor;
-  for (var i = 1; i < this.totalPoints; i++) {
-    var cx = (prevX + points[i].x) / 2;
-    var cy = (prevY + points[i].y) / 2;
+
+  for (i = 1; i < this.totalPoints; i++) {
+    cx = (prevX + points[i].x) / 2;
+    cy = (prevY + points[i].y) / 2;
     ctx.quadraticCurveTo(prevX, prevY, cx, cy);
     prevX = points[i].x;
     prevY = points[i].y;
@@ -375,16 +416,19 @@ function WaveGroup() {
 }
 
 WaveGroup.prototype.resize = function (stageWidth, stageHeight) {
+  var i = 0;
   this.stageWidth = stageWidth;
   this.stageHeight = stageHeight;
-  for (var i = 0; i < this.totalWaves; i++) {
+  for (i = 0; i < this.totalWaves; i++) {
     this.waves[i].resize(this.stageWidth, this.stageHeight);
   }
 };
 
 WaveGroup.prototype.update = function () {
-  for (var i = this.tubes.length - 1; i >= 0; i--) {
-    var tube = this.tubes[i];
+  var i = 0;
+  var tube = null;
+  for (i = this.tubes.length - 1; i >= 0; i--) {
+    tube = this.tubes[i];
     tube.update(this.isResetting);
     if (tube.isOut()) {
       this.tubes.splice(i, 1);
@@ -393,7 +437,21 @@ WaveGroup.prototype.update = function () {
 };
 
 WaveGroup.prototype.draw = function (ctx, waveReset) {
-  var i, j, k, m, n, p;
+  var i = 0;
+  var j = 0;
+  var k = 0;
+  var m = 0;
+  var n = 0;
+  var p = 0;
+  var radius = 50;
+  var x = 0;
+  var y = -30;
+  var closestPoint = null;
+  var closestDistance = 999999;
+  var point = null;
+  var distance = 0;
+  var anyResetting = false;
+
   for (i = 0; i < this.waves.length; i++) {
     this.waves[i].draw(ctx);
   }
@@ -408,16 +466,12 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
     for (k = 0; k < this.totalWaves; k++) {
       this.waves[k].resetWave();
     }
-    var radius = 50;
-    var x = Math.random() * (this.stageWidth - radius * 2) + radius;
-    var y = -30;
-    var closestPoint = null;
-    var closestDistance = Infinity;
+    x = Math.random() * (this.stageWidth - radius * 2) + radius;
 
     if (this.waves[2] && this.waves[2].points) {
       for (m = 0; m < this.waves[2].points.length; m++) {
-        var point = this.waves[2].points[m];
-        var distance = Math.abs(x - point.x);
+        point = this.waves[2].points[m];
+        distance = Math.abs(x - point.x);
         if (distance < closestDistance) {
           closestDistance = distance;
           closestPoint = point;
@@ -440,7 +494,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
       }
     }
 
-    var anyResetting = false;
+    anyResetting = false;
     for (p = 0; p < this.totalWaves; p++) {
       if (this.waves[p].isResetWave) {
         anyResetting = true;
@@ -456,6 +510,8 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
 
 // 6. App 클래스
 function App() {
+  var self = this;
+
   this.waveCanvas = document.createElement("canvas");
   this.waveCtx = this.waveCanvas.getContext("2d");
   this.sandCanvas = document.createElement("canvas");
@@ -470,20 +526,21 @@ function App() {
   this.waveGroup = new WaveGroup();
   this.drawing = new Drawing(this.drawCtx);
 
-  var self = this;
-  window.addEventListener(
-    "resize",
-    function () {
-      self.resize();
-    },
-    false,
-  );
+  function onResize() {
+    self.resize();
+  }
+
+  function onFrame(t) {
+    self.animate(t);
+  }
+
+  this.onFrameCallback = onFrame;
+
+  window.addEventListener("resize", onResize, false);
 
   this.resize();
 
-  window.requestAnimationFrame(function (t) {
-    self.animate(t);
-  });
+  window.requestAnimationFrame(this.onFrameCallback);
 }
 
 App.prototype.resize = function () {
@@ -503,12 +560,15 @@ App.prototype.resize = function () {
 };
 
 App.prototype.animate = function (t) {
-  var self = this;
   var waveReset = false;
+  var idleTime = 0;
+  var now = new Date().getTime();
+
   if (this.drawing.hasDrawn === true) {
-    var idleTime = Date.now() - this.drawing.lastDrawTime;
+    idleTime = now - this.drawing.lastDrawTime;
     waveReset = idleTime > 5000;
   }
+
   this.waveCtx.clearRect(0, 0, this.stageWidth, this.stageHeight);
   this.waveGroup.update();
   this.waveGroup.draw(this.waveCtx, waveReset);
@@ -518,9 +578,7 @@ App.prototype.animate = function (t) {
     this.waveGroup.resetFinished = false;
   }
 
-  window.requestAnimationFrame(function (t) {
-    self.animate(t);
-  });
+  window.requestAnimationFrame(this.onFrameCallback);
 };
 
 window.onload = function () {
