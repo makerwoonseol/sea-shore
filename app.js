@@ -1,6 +1,6 @@
-// =========================================================================
-// 1. 공통 바벨 헬퍼 함수
-// =========================================================================
+// ==========================================
+// 1. 공통 헬퍼 함수 (iOS 9 / ES5 호환용)
+// ==========================================
 function _classCallCheck(a, n) {
   if (!(a instanceof n))
     throw new TypeError("Cannot call a class as a function");
@@ -59,7 +59,9 @@ function _createForOfIteratorHelper(r, e) {
         f: F,
       };
     }
-    throw new TypeError("Invalid attempt to iterate non-iterable instance.");
+    throw new TypeError(
+      "Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.",
+    );
   }
   var o,
     a = !0,
@@ -105,9 +107,9 @@ function _arrayLikeToArray(r, a) {
   return n;
 }
 
-// =========================================================================
+// ==========================================
 // 2. Point 클래스
-// =========================================================================
+// ==========================================
 var Point = /*#__PURE__*/ (function () {
   function Point(index, x, y, speed) {
     _classCallCheck(this, Point);
@@ -124,26 +126,33 @@ var Point = /*#__PURE__*/ (function () {
       value: function update() {
         if (this.y < this.targetY) {
           this.y += this.speed * 2;
-          if (this.y > this.targetY) this.y = this.targetY;
+          if (this.y > this.targetY) {
+            this.y = this.targetY;
+          }
         } else if (this.y > this.targetY) {
           this.y -= this.speed;
-          if (this.y < this.targetY) this.y = this.targetY;
+          if (this.y < this.targetY) {
+            this.y = this.targetY;
+          }
         }
       },
     },
   ]);
 })();
 
-// =========================================================================
+// ==========================================
 // 3. Tube 클래스
-// =========================================================================
+// ==========================================
 var Tube = /*#__PURE__*/ (function () {
   function Tube(x, y, radius, closestPoint) {
     _classCallCheck(this, Tube);
     this.x = x;
     this.y = y;
-    this.radius = radius;
+    this.radius = radius || 40;
     this.closestPoint = closestPoint;
+    this.angle = Math.random() * Math.PI;
+    this.rotateSpeed = (Math.random() - 0.5) * 0.03;
+    this.bounce = Math.random() * 10;
   }
   return _createClass(Tube, [
     {
@@ -151,33 +160,76 @@ var Tube = /*#__PURE__*/ (function () {
       value: function update(isResetting) {
         if (this.closestPoint) {
           this.x = this.closestPoint.x;
-          this.y = this.closestPoint.y;
+          var targetY = this.closestPoint.y;
+          if (this.y < targetY) {
+            this.y += (targetY - this.y) * 0.08 + 1.5;
+          } else {
+            this.bounce += 0.05;
+            this.y = targetY + Math.sin(this.bounce) * 4;
+          }
+        } else {
+          this.y += 3;
         }
+        this.angle += this.rotateSpeed;
+      },
+    },
+    {
+      key: "isOut",
+      value: function isOut() {
+        if (this.closestPoint && this.closestPoint.y > 900 && this.y > 850) {
+          return true;
+        }
+        return this.y > 1200;
       },
     },
     {
       key: "draw",
       value: function draw(ctx) {
         ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        var outerR = this.radius;
+        var innerR = this.radius * 0.45;
+
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "#ff6b6b";
+        ctx.arc(0, 0, outerR, 0, Math.PI * 2);
+        ctx.arc(0, 0, innerR, 0, Math.PI * 2, true);
+        ctx.fillStyle = "#FF5252";
         ctx.fill();
+
+        for (var i = 0; i < 4; i++) {
+          ctx.save();
+          ctx.rotate((Math.PI / 2) * i);
+          ctx.beginPath();
+          ctx.arc(0, 0, outerR, -Math.PI / 8, Math.PI / 8);
+          ctx.arc(0, 0, innerR, Math.PI / 8, -Math.PI / 8, true);
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR, 0, Math.PI * 2);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
+        ctx.stroke();
+
         ctx.restore();
-      },
-    },
-    {
-      key: "isOut",
-      value: function isOut() {
-        return false;
       },
     },
   ]);
 })();
 
-// =========================================================================
-// 4. Drawing 클래스
-// =========================================================================
+// ==========================================
+// 4. Drawing 클래스 (iOS 9 터치 지원 추가)
+// ==========================================
 var Drawing = /*#__PURE__*/ (function () {
   function Drawing(ctx) {
     var _this = this;
@@ -192,17 +244,27 @@ var Drawing = /*#__PURE__*/ (function () {
     this.lastMouse = { x: 0, y: 0 };
     this.isDrawing = false;
 
-    function onStart(clientX, clientY) {
-      _this.isDrawing = true;
-      _this.mouse.x = clientX;
-      _this.mouse.y = clientY;
-      _this.lastMouse.x = _this.mouse.x;
-      _this.lastMouse.y = _this.mouse.y;
+    // iOS 9 사파리 터치 지원 함수
+    function getPos(e) {
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
     }
 
-    function onMove(clientX, clientY) {
-      _this.mouse.x = clientX;
-      _this.mouse.y = clientY;
+    var onStart = function (event) {
+      _this.isDrawing = true;
+      var pos = getPos(event);
+      _this.mouse.x = pos.x;
+      _this.mouse.y = pos.y;
+      _this.lastMouse.x = pos.x;
+      _this.lastMouse.y = pos.y;
+    };
+
+    var onMove = function (event) {
+      var pos = getPos(event);
+      _this.mouse.x = pos.x;
+      _this.mouse.y = pos.y;
       if (_this.isDrawing === true) {
         var dx = _this.mouse.x - _this.lastMouse.x;
         var dy = _this.mouse.y - _this.lastMouse.y;
@@ -214,28 +276,20 @@ var Drawing = /*#__PURE__*/ (function () {
       }
       _this.lastMouse.x = _this.mouse.x;
       _this.lastMouse.y = _this.mouse.y;
-    }
+    };
 
-    function onEnd() {
+    var onEnd = function () {
       _this.isDrawing = false;
-    }
+    };
 
-    window.addEventListener("mousedown", function (e) {
-      onStart(e.clientX, e.clientY);
-    });
-    window.addEventListener("mousemove", function (e) {
-      onMove(e.clientX, e.clientY);
-    });
+    // 마우스 이벤트 등록
+    window.addEventListener("mousedown", onStart);
+    window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onEnd);
 
-    window.addEventListener("touchstart", function (e) {
-      if (e.touches.length > 0)
-        onStart(e.touches[0].clientX, e.touches[0].clientY);
-    });
-    window.addEventListener("touchmove", function (e) {
-      if (e.touches.length > 0)
-        onMove(e.touches[0].clientX, e.touches[0].clientY);
-    });
+    // iOS 9 터치 이벤트 등록
+    window.addEventListener("touchstart", onStart);
+    window.addEventListener("touchmove", onMove);
     window.addEventListener("touchend", onEnd);
   }
   return _createClass(Drawing, [
@@ -283,9 +337,9 @@ var Drawing = /*#__PURE__*/ (function () {
   ]);
 })();
 
-// =========================================================================
+// ==========================================
 // 5. Wave 클래스
-// =========================================================================
+// ==========================================
 var Wave = /*#__PURE__*/ (function () {
   function Wave(index, totalPoints, color) {
     _classCallCheck(this, Wave);
@@ -378,18 +432,25 @@ var Wave = /*#__PURE__*/ (function () {
           }
           this.points[_i].update();
         }
+
         this.drawWave(ctx, this.points, 0.99, this.color);
         if (arrivedCount === this.totalPoints) {
           var _trail = [];
           for (var _i2 = 0; _i2 < this.totalPoints; _i2++) {
-            _trail.push({ x: this.points[_i2].x, y: this.points[_i2].y });
+            _trail.push({
+              x: this.points[_i2].x,
+              y: this.points[_i2].y,
+            });
           }
           if (this.isResetWave) {
             this.resetFinished = true;
             this.isResetWave = false;
             return;
           }
-          this.trails.push({ points: _trail, alpha: 0.5 });
+          this.trails.push({
+            points: _trail,
+            alpha: 0.5,
+          });
           if (this.isBack == false) {
             this.goBack();
             this.isBack = true;
@@ -428,9 +489,9 @@ var Wave = /*#__PURE__*/ (function () {
   ]);
 })();
 
-// =========================================================================
+// ==========================================
 // 6. WaveGroup 클래스
-// =========================================================================
+// ==========================================
 var WaveGroup = /*#__PURE__*/ (function () {
   function WaveGroup() {
     _classCallCheck(this, WaveGroup);
@@ -446,6 +507,7 @@ var WaveGroup = /*#__PURE__*/ (function () {
     this.isResetting = false;
     this.resetFinished = false;
     this.hasTriggeredClear = false;
+
     this.tubes = [];
   }
   return _createClass(WaveGroup, [
@@ -531,8 +593,8 @@ var WaveGroup = /*#__PURE__*/ (function () {
           var tube = new Tube(x, y, radius, closestPoint);
           this.tubes.push(tube);
         }
-
         this.resetFinished = false;
+
         if (this.isResetting) {
           for (var _i = 0; _i < this.totalWaves; _i++) {
             if (this.waves[_i].resetFinished) {
@@ -543,6 +605,7 @@ var WaveGroup = /*#__PURE__*/ (function () {
               this.waves[_i].resetFinished = false;
             }
           }
+
           var anyResetting = false;
           for (var _i2 = 0; _i2 < this.totalWaves; _i2++) {
             if (this.waves[_i2].isResetWave) {
@@ -550,6 +613,7 @@ var WaveGroup = /*#__PURE__*/ (function () {
               break;
             }
           }
+
           if (!anyResetting) {
             this.isResetting = false;
           }
@@ -559,9 +623,9 @@ var WaveGroup = /*#__PURE__*/ (function () {
   ]);
 })();
 
-// =========================================================================
-// 7. 메인 App 메커니즘 구동
-// =========================================================================
+// ==========================================
+// 7. App 클래스 및 실행 메인 로직
+// ==========================================
 var App = /*#__PURE__*/ (function () {
   function App() {
     _classCallCheck(this, App);
@@ -581,6 +645,7 @@ var App = /*#__PURE__*/ (function () {
 
     window.addEventListener("resize", this.resize.bind(this), false);
     this.resize();
+
     requestAnimationFrame(this.animate.bind(this));
   }
   return _createClass(App, [
@@ -589,19 +654,12 @@ var App = /*#__PURE__*/ (function () {
       value: function resize() {
         this.stageWidth = document.body.clientWidth;
         this.stageHeight = document.body.clientHeight;
-
-        this.sandCanvas.width = this.stageWidth * 2;
-        this.sandCanvas.height = this.stageHeight * 2;
-        this.sandCtx.scale(2, 2);
-
-        this.drawCanvas.width = this.stageWidth * 2;
-        this.drawCanvas.height = this.stageHeight * 2;
-        this.drawCtx.scale(2, 2);
-
         this.waveCanvas.width = this.stageWidth * 2;
         this.waveCanvas.height = this.stageHeight * 2;
         this.waveCtx.scale(2, 2);
-
+        this.drawCanvas.width = this.stageWidth * 2;
+        this.drawCanvas.height = this.stageHeight * 2;
+        this.drawCtx.scale(2, 2);
         this.waveGroup.resize(this.stageWidth, this.stageHeight);
         this.drawing.resize(this.stageWidth, this.stageHeight);
       },
