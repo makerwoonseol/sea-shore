@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
     <link rel="stylesheet" type="text/css" href="style.css" />
-    <!-- 기존 polyfill.io 코드를 지우고 이것을 넣어주세요 -->
+    
+    <!-- 구형 아이패드(iOS 9)를 위한 필수 호환성 스크립트 연결 -->
     <script src="https://cloudflare.com"></script>
     <script src="https://cloudflare.com"></script>
   </head>
   <body>
-    <script type="module" src="app.js"></script>
+    <!-- type="module"을 제거하여 iOS 9 사파리가 파일을 강제로 읽도록 수정 -->
+    <script src="app.js"></script>
   </body>
 </html>
