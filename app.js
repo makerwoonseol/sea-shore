@@ -56,33 +56,11 @@ Tube.prototype.isOut = function () {
   return totalY < 0;
 };
 
+/* 초경량화 그림자 처리 (삼각함수 루프 전면 제거) */
 Tube.prototype.drawShadowRing = function (ctx) {
-  var outer = this.radius + 3;
-  var inner = 28;
-  var deg = 0;
-  var rad = 0;
-  var noise = 0;
-  var r = 0;
-
   ctx.beginPath();
-  for (deg = 0; deg <= 360; deg = deg + 30) {
-    rad = deg * Math.PI * 0.005555555555555556;
-    noise = Math.sin(rad * 5 + this.time * 2.5) * 2;
-    r = outer + noise;
-    if (deg === 0) {
-      ctx.moveTo(Math.cos(rad) * r, Math.sin(rad) * r);
-    } else {
-      ctx.lineTo(Math.cos(rad) * r, Math.sin(rad) * r);
-    }
-  }
-  ctx.closePath();
-
-  for (deg = 360; deg >= 0; deg = deg - 30) {
-    rad = deg * Math.PI * 0.005555555555555556;
-    r = inner + Math.sin(rad * 4 + this.time * 1.7) * 1.5;
-    ctx.lineTo(Math.cos(rad) * r, Math.sin(rad) * r);
-  }
-  ctx.closePath();
+  ctx.arc(0, 0, this.radius + 3, 0, Math.PI * 2, false);
+  ctx.arc(0, 0, 26, 0, Math.PI * 2, true);
   ctx.fill();
 };
 
@@ -91,10 +69,9 @@ Tube.prototype.draw = function (ctx) {
   var sector = PI * 0.16666666666666666;
 
   ctx.save();
-  ctx.translate(this.x + 12, this.y + 12);
-  ctx.rotate(this.rotation * 0.3);
-  ctx.globalAlpha = 0.22;
-  ctx.fillStyle = "#001122";
+  ctx.translate(this.x + 10, this.y + 10);
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = "#000000";
   this.drawShadowRing(ctx);
   ctx.restore();
 
@@ -153,6 +130,9 @@ function getEventPos(e) {
 }
 
 function handleStart(event) {
+  if (event && event.preventDefault) {
+    event.preventDefault();
+  }
   if (!globalDrawingInstance) {
     return;
   }
@@ -165,6 +145,9 @@ function handleStart(event) {
 }
 
 function handleMove(event) {
+  if (event && event.preventDefault) {
+    event.preventDefault();
+  }
   if (!globalDrawingInstance) {
     return;
   }
@@ -180,9 +163,9 @@ function handleMove(event) {
   if (globalDrawingInstance.isDrawing === true) {
     dx = globalDrawingInstance.mouse.x - globalDrawingInstance.lastMouse.x;
     dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
-    for (i = 0; i <= 5; i = i + 1) {
-      x = globalDrawingInstance.lastMouse.x + dx * 0.2 * i;
-      y = globalDrawingInstance.lastMouse.y + dy * 0.2 * i;
+    for (i = 0; i <= 3; i = i + 1) {
+      x = globalDrawingInstance.lastMouse.x + dx * 0.33 * i;
+      y = globalDrawingInstance.lastMouse.y + dy * 0.33 * i;
       globalDrawingInstance.drawBrush(x, y);
     }
   }
@@ -190,7 +173,10 @@ function handleMove(event) {
   globalDrawingInstance.lastMouse.y = globalDrawingInstance.mouse.y;
 }
 
-function handleEnd() {
+function handleEnd(event) {
+  if (event && event.preventDefault) {
+    event.preventDefault();
+  }
   if (!globalDrawingInstance) {
     return;
   }
@@ -222,14 +208,14 @@ Drawing.prototype.resize = function (stageWidth, stageHeight) {
 };
 
 Drawing.prototype.drawBrush = function (x, y) {
-  var px = x + Math.random() * 14 - 7;
-  var py = y + Math.random() * 14 - 7;
+  var px = x + Math.random() * 10 - 5;
+  var py = y + Math.random() * 10 - 5;
 
   this.hasDrawn = true;
   this.lastDrawTime = new Date().getTime();
 
   this.ctx.beginPath();
-  this.ctx.arc(px, py, Math.random() * 2 + 0.5, 0, Math.PI * 2, false);
+  this.ctx.arc(px, py, 1.5, 0, Math.PI * 2, false);
   this.ctx.fillStyle = "#e8dfc8";
   this.ctx.fill();
 };
@@ -312,14 +298,14 @@ Wave.prototype.draw = function (ctx) {
     return;
   }
 
-  if (this.trails.length > 3) {
+  if (this.trails.length > 2) {
     this.trails.shift();
   }
 
   for (i = this.trails.length - 1; i >= 0; i = i - 1) {
     trail = this.trails[i];
     this.drawWave(ctx, trail.points, trail.alpha, this.color);
-    trail.alpha = trail.alpha - 0.002;
+    trail.alpha = trail.alpha - 0.003;
     if (trail.alpha <= 0) {
       this.trails.splice(i, 1);
     }
@@ -345,7 +331,7 @@ Wave.prototype.draw = function (ctx) {
     for (k = 0; k < this.totalPoints; k = k + 1) {
       trailPoints.push({ x: this.points[k].x, y: this.points[k].y });
     }
-    this.trails.push({ points: trailPoints, alpha: 0.5 });
+    this.trails.push({ points: trailPoints, alpha: 0.4 });
 
     if (this.isBack === false) {
       this.goBack();
@@ -484,10 +470,17 @@ function onAppResize() {
   }
 }
 
+/* 초당 프레임 스킵을 통한 CPU/GPU 부하 완화 (30~40fps 렌더링 최적화) */
+var lastFrameTime = 0;
 function onAppFrame(t) {
   if (globalAppInstance) {
-    globalAppInstance.animate(t);
+    var now = new Date().getTime();
+    if (now - lastFrameTime > 25) {
+      globalAppInstance.animate(t);
+      lastFrameTime = now;
+    }
   }
+  window.requestAnimationFrame(onAppFrame);
 }
 
 function App() {
@@ -547,8 +540,6 @@ App.prototype.animate = function (t) {
     this.drawing.clear();
     this.waveGroup.resetFinished = false;
   }
-
-  window.requestAnimationFrame(onAppFrame);
 };
 
 window.onload = function () {
