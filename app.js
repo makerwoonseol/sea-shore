@@ -141,85 +141,155 @@ var Point = /*#__PURE__*/ (function () {
 })();
 
 // ==========================================
-// 3. Tube 클래스
+// 3. Tube 클래스 (보내주신 원본 100% 복원)
 // ==========================================
 var Tube = /*#__PURE__*/ (function () {
-  function Tube(x, y, radius, closestPoint) {
+  function Tube(x, y, radius, point) {
     _classCallCheck(this, Tube);
     this.x = x;
     this.y = y;
-    this.radius = radius || 40;
-    this.closestPoint = closestPoint;
-    this.angle = Math.random() * Math.PI;
-    this.rotateSpeed = (Math.random() - 0.5) * 0.03;
-    this.bounce = Math.random() * 10;
+    this.radius = radius;
+    this.point = point;
+
+    this.time = 0;
+    this.rotation = 0;
   }
   return _createClass(Tube, [
     {
       key: "update",
       value: function update(isResetting) {
-        if (this.closestPoint) {
-          this.x = this.closestPoint.x;
-          var targetY = this.closestPoint.y;
-          if (this.y < targetY) {
-            this.y += (targetY - this.y) * 0.08 + 1.5;
-          } else {
-            this.bounce += 0.05;
-            this.y = targetY + Math.sin(this.bounce) * 4;
-          }
+        if (isResetting) {
+          this.y += 2 * 0.9;
         } else {
-          this.y += 3;
+          this.y -= this.point.speed * 0.9;
         }
-        this.angle += this.rotateSpeed;
+        this.time += 0.02;
+        this.rotation = Math.sin(this.time) * 0.2;
       },
     },
     {
       key: "isOut",
       value: function isOut() {
-        if (this.closestPoint && this.closestPoint.y > 900 && this.y > 850) {
-          return true;
+        return this.y + this.radius * 2 < 0;
+      },
+    },
+    {
+      key: "drawShadowRing",
+      value: function drawShadowRing(ctx) {
+        var outer = this.radius + 3;
+        var inner = 28;
+
+        ctx.beginPath();
+        for (var deg = 0; deg <= 360; deg += 6) {
+          var rad = (deg * Math.PI) / 180;
+          var noise =
+            Math.sin(rad * 5 + this.time * 2.5) * 2 +
+            Math.sin(rad * 8 - this.time * 3.2) * 1.2;
+          var r = outer + noise;
+          var x = Math.cos(rad) * r;
+          var y = Math.sin(rad) * r;
+
+          if (deg === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
-        return this.y > 1200;
+        ctx.closePath();
+
+        for (var deg = 360; deg >= 0; deg -= 6) {
+          var rad = (deg * Math.PI) / 180;
+          var noise = Math.sin(rad * 4 + this.time * 1.7) * 1.5;
+          var r = inner + noise;
+          var x = Math.cos(rad) * r;
+          var y = Math.sin(rad) * r;
+
+          ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
       },
     },
     {
       key: "draw",
       value: function draw(ctx) {
         ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
 
-        var outerR = this.radius;
-        var innerR = this.radius * 0.45;
+        ctx.translate(this.x + 12, this.y + 12);
+        ctx.rotate(this.rotation * 0.3);
 
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR, 0, Math.PI * 2);
-        ctx.arc(0, 0, innerR, 0, Math.PI * 2, true);
-        ctx.fillStyle = "#FF5252";
-        ctx.fill();
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = "#001122";
 
-        for (var i = 0; i < 4; i++) {
-          ctx.save();
-          ctx.rotate((Math.PI / 2) * i);
-          ctx.beginPath();
-          ctx.arc(0, 0, outerR, -Math.PI / 8, Math.PI / 8);
-          ctx.arc(0, 0, innerR, Math.PI / 8, -Math.PI / 8, true);
-          ctx.fillStyle = "#FFFFFF";
-          ctx.fill();
-          ctx.restore();
+        // iOS 9 호환성 처리 (ctx.filter 지원 여부 체크)
+        if ("filter" in ctx) {
+          ctx.filter = "blur(10px)";
         }
 
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR, 0, Math.PI * 2);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
-        ctx.stroke();
+        this.drawShadowRing(ctx);
 
+        ctx.restore();
+
+        if ("filter" in ctx) {
+          ctx.filter = "none";
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.save();
+
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        // 클리핑 패스로 도넛 구멍 뚫기
         ctx.beginPath();
-        ctx.arc(0, 0, innerR, 0, Math.PI * 2);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
-        ctx.stroke();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
+        ctx.arc(0, 0, 28, 0, Math.PI * 2, true);
+        ctx.clip();
+
+        // 빨간색 바탕
+        ctx.fillStyle = "#F2360C";
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
+        ctx.fill();
+
+        // 흰색 줄무늬 1
+        ctx.fillStyle = "#F2F2F2";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, this.radius, 0, Math.PI / 6, false);
+        ctx.fill();
+
+        // 흰색 줄무늬 2
+        ctx.fillStyle = "#F2F2F2";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, this.radius, Math.PI, Math.PI + Math.PI / 6, false);
+        ctx.fill();
+
+        // 흰색 줄무늬 3
+        ctx.fillStyle = "#F2F2F2";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(
+          0,
+          0,
+          this.radius,
+          -Math.PI / 2,
+          -Math.PI / 2 + Math.PI / 6,
+          false,
+        );
+        ctx.fill();
+
+        // 흰색 줄무늬 4
+        ctx.fillStyle = "#F2F2F2";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(
+          0,
+          0,
+          this.radius,
+          Math.PI / 2,
+          Math.PI / 2 + Math.PI / 6,
+          false,
+        );
+        ctx.fill();
 
         ctx.restore();
       },
@@ -228,7 +298,7 @@ var Tube = /*#__PURE__*/ (function () {
 })();
 
 // ==========================================
-// 4. Drawing 클래스 (iOS 9 터치 지원 추가)
+// 4. Drawing 클래스 (iOS 9 터치 이벤트 추가)
 // ==========================================
 var Drawing = /*#__PURE__*/ (function () {
   function Drawing(ctx) {
@@ -244,7 +314,7 @@ var Drawing = /*#__PURE__*/ (function () {
     this.lastMouse = { x: 0, y: 0 };
     this.isDrawing = false;
 
-    // iOS 9 사파리 터치 지원 함수
+    // 터치/마우스 좌표 추출 헬퍼 (iOS 9 대응)
     function getPos(e) {
       if (e.touches && e.touches.length > 0) {
         return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -282,12 +352,12 @@ var Drawing = /*#__PURE__*/ (function () {
       _this.isDrawing = false;
     };
 
-    // 마우스 이벤트 등록
+    // 마우스 이벤트
     window.addEventListener("mousedown", onStart);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onEnd);
 
-    // iOS 9 터치 이벤트 등록
+    // iOS 9 Safari 터치 이벤트
     window.addEventListener("touchstart", onStart);
     window.addEventListener("touchmove", onMove);
     window.addEventListener("touchend", onEnd);
@@ -624,7 +694,7 @@ var WaveGroup = /*#__PURE__*/ (function () {
 })();
 
 // ==========================================
-// 7. App 클래스 및 실행 메인 로직
+// 7. App 클래스 및 메인 실행 로직
 // ==========================================
 var App = /*#__PURE__*/ (function () {
   function App() {
