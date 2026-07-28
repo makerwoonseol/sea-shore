@@ -1,4 +1,3 @@
-// 0. requestAnimationFrame 폴리필
 window.requestAnimationFrame =
   window.requestAnimationFrame ||
   window.webkitRequestAnimationFrame ||
@@ -6,7 +5,6 @@ window.requestAnimationFrame =
     return setTimeout(callback, 16);
   };
 
-// 1. Point 클래스
 function Point(index, x, y, speed) {
   this.x = x;
   this.y = y;
@@ -30,7 +28,6 @@ Point.prototype.update = function () {
   }
 };
 
-// 2. Tube 클래스
 function Tube(x, y, radius, point) {
   this.x = x;
   this.y = y;
@@ -59,7 +56,6 @@ Tube.prototype.isOut = function () {
   return totalY < 0;
 };
 
-// 경량화된 그림자 계산
 Tube.prototype.drawShadowRing = function (ctx) {
   var outer = this.radius + 3;
   var inner = 28;
@@ -69,8 +65,7 @@ Tube.prototype.drawShadowRing = function (ctx) {
   var r = 0;
 
   ctx.beginPath();
-  for (deg = 0; deg <= 360; deg = deg + 20) {
-    // 연산 주기 20도로 완화 (경량화)
+  for (deg = 0; deg <= 360; deg = deg + 30) {
     rad = deg * Math.PI * 0.005555555555555556;
     noise = Math.sin(rad * 5 + this.time * 2.5) * 2;
     r = outer + noise;
@@ -82,7 +77,7 @@ Tube.prototype.drawShadowRing = function (ctx) {
   }
   ctx.closePath();
 
-  for (deg = 360; deg >= 0; deg = deg - 20) {
+  for (deg = 360; deg >= 0; deg = deg - 30) {
     rad = deg * Math.PI * 0.005555555555555556;
     r = inner + Math.sin(rad * 4 + this.time * 1.7) * 1.5;
     ctx.lineTo(Math.cos(rad) * r, Math.sin(rad) * r);
@@ -143,7 +138,6 @@ Tube.prototype.draw = function (ctx) {
   ctx.restore();
 };
 
-// 3. Drawing 클래스
 var globalDrawingInstance = null;
 
 function getEventPos(e) {
@@ -153,11 +147,15 @@ function getEventPos(e) {
   if (e.changedTouches && e.changedTouches.length > 0) {
     return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
   }
-  return { x: e.clientX || 0, y: e.clientY || 0 };
+  var cx = e.clientX || 0;
+  var cy = e.clientY || 0;
+  return { x: cx, y: cy };
 }
 
 function handleStart(event) {
-  if (!globalDrawingInstance) return;
+  if (!globalDrawingInstance) {
+    return;
+  }
   globalDrawingInstance.isDrawing = true;
   var pos = getEventPos(event);
   globalDrawingInstance.mouse.x = pos.x;
@@ -167,17 +165,24 @@ function handleStart(event) {
 }
 
 function handleMove(event) {
-  if (!globalDrawingInstance) return;
+  if (!globalDrawingInstance) {
+    return;
+  }
   var pos = getEventPos(event);
+  var dx = 0;
+  var dy = 0;
+  var i = 0;
+  var x = 0;
+  var y = 0;
+
   globalDrawingInstance.mouse.x = pos.x;
   globalDrawingInstance.mouse.y = pos.y;
   if (globalDrawingInstance.isDrawing === true) {
-    var dx = globalDrawingInstance.mouse.x - globalDrawingInstance.lastMouse.x;
-    var dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
-    for (var i = 0; i <= 5; i = i + 1) {
-      // 브러시 루프 5회로 단축
-      var x = globalDrawingInstance.lastMouse.x + dx * 0.2 * i;
-      var y = globalDrawingInstance.lastMouse.y + dy * 0.2 * i;
+    dx = globalDrawingInstance.mouse.x - globalDrawingInstance.lastMouse.x;
+    dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
+    for (i = 0; i <= 5; i = i + 1) {
+      x = globalDrawingInstance.lastMouse.x + dx * 0.2 * i;
+      y = globalDrawingInstance.lastMouse.y + dy * 0.2 * i;
       globalDrawingInstance.drawBrush(x, y);
     }
   }
@@ -186,7 +191,9 @@ function handleMove(event) {
 }
 
 function handleEnd() {
-  if (!globalDrawingInstance) return;
+  if (!globalDrawingInstance) {
+    return;
+  }
   globalDrawingInstance.isDrawing = false;
 }
 
@@ -232,7 +239,6 @@ Drawing.prototype.clear = function () {
   this.hasDrawn = false;
 };
 
-// 4. Wave 클래스
 function Wave(index, totalPoints, color) {
   this.index = index;
   this.totalPoints = totalPoints;
@@ -249,20 +255,21 @@ Wave.prototype.resize = function (stageWidth, stageHeight) {
   this.stageWidth = stageWidth;
   this.stageHeight = stageHeight;
   var count = this.totalPoints - 1;
-  this.pointGap = this.stageWidth / count;
+  var invCount = 0.2;
+  if (count > 0) {
+    invCount = Math.pow(count, -1);
+  }
+  this.pointGap = this.stageWidth * invCount;
   this.init();
 };
 
 Wave.prototype.init = function () {
   var i = 0;
+  var speed = 0;
   this.points = [];
   for (i = 0; i < this.totalPoints; i = i + 1) {
-    this.points[i] = new Point(
-      this.index + i,
-      this.pointGap * i,
-      0,
-      Math.random() * 0.333 + 0.4,
-    );
+    speed = Math.random() * 0.3333333 + 0.4;
+    this.points[i] = new Point(this.index + i, this.pointGap * i, 0, speed);
   }
 };
 
@@ -296,6 +303,7 @@ Wave.prototype.draw = function (ctx) {
   var i = 0;
   var j = 0;
   var k = 0;
+  var trail = null;
   var arrivedCount = 0;
   var trailPoints = [];
 
@@ -304,13 +312,12 @@ Wave.prototype.draw = function (ctx) {
     return;
   }
 
-  // 잔상 최대 3개로 제한 (메모리 누수 방지)
   if (this.trails.length > 3) {
     this.trails.shift();
   }
 
   for (i = this.trails.length - 1; i >= 0; i = i - 1) {
-    var trail = this.trails[i];
+    trail = this.trails[i];
     this.drawWave(ctx, trail.points, trail.alpha, this.color);
     trail.alpha = trail.alpha - 0.002;
     if (trail.alpha <= 0) {
@@ -327,12 +334,11 @@ Wave.prototype.draw = function (ctx) {
 
   this.drawWave(ctx, this.points, 0.99, this.color);
 
-  // 핵심 수정: 도착 시 무한 실행 및 메모리 누수 방지
   if (arrivedCount === this.totalPoints) {
     if (this.isResetWave) {
       this.resetFinished = true;
       this.isResetWave = false;
-      this.makeWave(); // 바닥 도착 후 상태를 재설정하여 무한 루프 차단!
+      this.makeWave();
       return;
     }
 
@@ -379,7 +385,6 @@ Wave.prototype.drawWave = function (ctx, points, alpha, waveColor) {
   ctx.restore();
 };
 
-// 5. WaveGroup 클래스
 function WaveGroup() {
   this.totalWaves = 3;
   this.waves = [
@@ -407,8 +412,9 @@ WaveGroup.prototype.resize = function (stageWidth, stageHeight) {
 
 WaveGroup.prototype.update = function () {
   var i = 0;
+  var tube = null;
   for (i = this.tubes.length - 1; i >= 0; i = i - 1) {
-    var tube = this.tubes[i];
+    tube = this.tubes[i];
     tube.update(this.isResetting);
     if (tube.isOut()) {
       this.tubes.splice(i, 1);
@@ -470,15 +476,18 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
   }
 };
 
-// 6. App 클래스
 var globalAppInstance = null;
 
 function onAppResize() {
-  if (globalAppInstance) globalAppInstance.resize();
+  if (globalAppInstance) {
+    globalAppInstance.resize();
+  }
 }
 
 function onAppFrame(t) {
-  if (globalAppInstance) globalAppInstance.animate(t);
+  if (globalAppInstance) {
+    globalAppInstance.animate(t);
+  }
 }
 
 function App() {
@@ -504,7 +513,6 @@ function App() {
   window.requestAnimationFrame(onAppFrame);
 }
 
-// 1배율 표준 해상도로 전면 변경 (메모리 사용량 75% 감소)
 App.prototype.resize = function () {
   var w = window.innerWidth || document.body.clientWidth || 800;
   var h = window.innerHeight || document.body.clientHeight || 600;
@@ -524,9 +532,10 @@ App.prototype.resize = function () {
 App.prototype.animate = function (t) {
   var waveReset = false;
   var now = new Date().getTime();
+  var idleTime = 0;
 
   if (this.drawing.hasDrawn === true) {
-    var idleTime = now - this.drawing.lastDrawTime;
+    idleTime = now - this.drawing.lastDrawTime;
     waveReset = idleTime > 5000;
   }
 
