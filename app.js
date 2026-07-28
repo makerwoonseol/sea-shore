@@ -32,7 +32,7 @@ function Tube(x, y, radius, point) {
   this.x = x;
   this.y = y;
   this.radius = radius;
-  this.point = point; // 연결된 파도의 Point 객체
+  this.point = point;
   this.time = 0;
   this.rotation = 0;
 }
@@ -41,7 +41,6 @@ Tube.prototype.update = function (isResetting) {
   this.time = this.time + 0.03;
   this.rotation = Math.sin(this.time) * 0.2;
 
-  // 파도 포인트(Point) Y좌표에 튜브 위치를 완벽 동기화
   if (this.point) {
     var targetY = this.point.y - this.radius * 0.2;
     this.y = this.y + (targetY - this.y) * 0.15;
@@ -59,7 +58,6 @@ Tube.prototype.isOut = function () {
   return totalY < -50;
 };
 
-/* 경량화 원형 그림자 */
 Tube.prototype.drawShadowRing = function (ctx) {
   ctx.beginPath();
   ctx.arc(0, 0, this.radius + 3, 0, Math.PI * 2, false);
@@ -159,6 +157,7 @@ function handleMove(event) {
   var dy = 0;
   var dist = 0;
   var steps = 0;
+  var invSteps = 0;
   var i = 0;
   var x = 0;
   var y = 0;
@@ -170,12 +169,12 @@ function handleMove(event) {
     dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
     dist = Math.sqrt(dx * dx + dy * dy);
 
-    // 이동 거리에 따라 보간 단계 결정 (빠를수록 매끄럽게 보간)
     steps = Math.max(Math.floor(dist * 0.4), 3);
+    invSteps = Math.pow(steps, -1);
 
     for (i = 0; i <= steps; i = i + 1) {
-      x = globalDrawingInstance.lastMouse.x + (dx / steps) * i;
-      y = globalDrawingInstance.lastMouse.y + (dy / steps) * i;
+      x = globalDrawingInstance.lastMouse.x + dx * invSteps * i;
+      y = globalDrawingInstance.lastMouse.y + dy * invSteps * i;
       globalDrawingInstance.drawBrush(x, y, dist);
     }
   }
@@ -217,7 +216,6 @@ Drawing.prototype.resize = function (stageWidth, stageHeight) {
   this.stageHeight = stageHeight;
 };
 
-/* 진하고 다양해진 모래 입자 브러쉬 연출 */
 Drawing.prototype.drawBrush = function (x, y, speed) {
   var particleCount = 10;
   var spread = 6;
@@ -226,7 +224,6 @@ Drawing.prototype.drawBrush = function (x, y, speed) {
   var py = 0;
   var r = 0;
 
-  // 속도에 따른 반응: 빠르게 그리면 산란 효과, 천천히 그리면 빽빽한 밀도
   if (speed > 12) {
     spread = 11;
     particleCount = 6;
@@ -243,7 +240,7 @@ Drawing.prototype.drawBrush = function (x, y, speed) {
   for (i = 0; i < particleCount; i = i + 1) {
     px = x + Math.random() * spread * 2 - spread;
     py = y + Math.random() * spread * 2 - spread;
-    r = Math.random() * 1.5 + 1.2; // 1.2px ~ 2.7px 다양한 입자 크기
+    r = Math.random() * 1.5 + 1.2;
 
     this.ctx.beginPath();
     this.ctx.arc(px, py, r, 0, Math.PI * 2, false);
@@ -461,13 +458,11 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
       this.waves[i].resetWave();
     }
 
-    // 맨 앞 파도(waves[0])의 포인트 중 하나를 연결 지점으로 지정
     targetWave = this.waves[0];
     if (targetWave && targetWave.points.length > 0) {
       pointIdx = Math.floor(Math.random() * targetWave.points.length);
       selectedPoint = targetWave.points[pointIdx];
 
-      // 튜브를 해당 파도 포인트 X위치에 배치하고 Point 객체를 전달
       this.tubes.push(
         new Tube(selectedPoint.x, selectedPoint.y, radius, selectedPoint),
       );
