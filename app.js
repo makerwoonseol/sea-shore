@@ -215,7 +215,7 @@ Drawing.prototype.drawBrush = function (x, y) {
   this.lastDrawTime = new Date().getTime();
 
   this.ctx.beginPath();
-  this.ctx.arc(px, py, 1.5, 0, Math.PI * 2, false);
+  this.ctx.arc(px, py, 3, 0, Math.PI * 2, false);
   this.ctx.fillStyle = "#e8dfc8";
   this.ctx.fill();
 };
