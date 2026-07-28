@@ -14,7 +14,7 @@
     />
     <meta name="apple-mobile-web-app-title" content="Wave Canvas" />
 
-    <title>Wave Animation</title>
+    <title>Wave Sand Canvas</title>
 
     <style>
       html,
@@ -31,7 +31,7 @@
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         user-select: none;
-        background-color: #f6f2e8;
+        background-color: #e2d1a6; /* 모래사장 기본 배경색 */
       }
       canvas {
         position: absolute;
@@ -41,16 +41,33 @@
         height: 100%;
         touch-action: none;
       }
+      #version-tag {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.85);
+        color: #00ff00;
+        padding: 5px 10px;
+        font-size: 12px;
+        z-index: 999999;
+        font-family: monospace;
+        border-radius: 4px;
+        pointer-events: none;
+      }
     </style>
+  </head>
+  <body>
+    <div id="version-tag">v1.3.0 (Single-File Safe)</div>
 
     <script>
+      // 1. 에러 로깅 핸들러 (스크립트 실시간 오류 감지)
       window.onerror = function (msg, url, line, col, error) {
         var div = document.getElementById("debug-log");
         if (!div) {
           div = document.createElement("div");
           div.id = "debug-log";
           div.style.cssText =
-            "position:fixed;top:0;left:0;width:100%;height:160px;background:rgba(0,0,0,0.9);color:#ff5555;z-index:999999;font-size:13px;overflow:auto;padding:10px;box-sizing:border-box;font-family:monospace;word-break:break-all;";
+            "position:fixed;top:0;left:0;width:100%;height:180px;background:rgba(0,0,0,0.9);color:#ff5555;z-index:999999;font-size:12px;overflow:auto;padding:10px;box-sizing:border-box;font-family:monospace;word-break:break-all;";
           document.body.appendChild(div);
         }
         div.innerHTML +=
@@ -62,34 +79,525 @@
         return false;
       };
 
-      document.addEventListener(
-        "touchmove",
-        function (e) {
-          if (e.preventDefault) {
-            e.preventDefault();
-          }
-        },
-        { passive: false },
-      );
-    </script>
-  </head>
-  <body>
-    <div
-      style="
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.85);
-        color: #00ff00;
-        padding: 4px 8px;
-        font-size: 12px;
-        z-index: 999999;
-        font-family: monospace;
-      "
-    >
-      v1.2.2 (Perfect Pure JS)
-    </div>
+      // 2. 애니메이션 프레임 호환성
+      window.requestAnimationFrame =
+        window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        function (cb) {
+          return setTimeout(cb, 16);
+        };
 
-    <script src="app.js?v=1.2.2"></script>
+      // 3. 파도 지점 클래스
+      function Point(index, x, y, speed) {
+        this.x = x;
+        this.y = y;
+        this.speed = speed;
+        this.cur = index;
+        this.targetY = 400 + Math.random() * 200;
+      }
+
+      Point.prototype.update = function () {
+        if (this.y < this.targetY) {
+          this.y = this.y + this.speed * 2;
+          if (this.y > this.targetY) this.y = this.targetY;
+        } else if (this.y > this.targetY) {
+          this.y = this.y - this.speed;
+          if (this.y < this.targetY) this.y = this.targetY;
+        }
+      };
+
+      // 4. 튜브 클래스
+      function Tube(x, y, radius, point) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.point = point;
+        this.time = 0;
+        this.rotation = 0;
+      }
+
+      Tube.prototype.update = function (isResetting) {
+        this.time = this.time + 0.03;
+        this.rotation = Math.sin(this.time) * 0.2;
+
+        if (this.point) {
+          var targetY = this.point.y - this.radius * 0.2;
+          this.y = this.y + (targetY - this.y) * 0.15;
+        } else {
+          if (isResetting) {
+            this.y = this.y + 2.5;
+          } else {
+            this.y = this.y - 1.2;
+          }
+        }
+      };
+
+      Tube.prototype.isOut = function () {
+        return this.y + this.radius * 2 < -50;
+      };
+
+      Tube.prototype.draw = function (ctx) {
+        var PI = Math.PI;
+        var sector = PI * 0.16666666666666666;
+
+        // 그림자
+        ctx.save();
+        ctx.translate(this.x + 10, this.y + 10);
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = "#000000";
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius + 3, 0, PI * 2, false);
+        ctx.arc(0, 0, 26, 0, PI * 2, true);
+        ctx.fill();
+        ctx.restore();
+
+        // 튜브 본체
+        ctx.globalAlpha = 1;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, PI * 2, false);
+        ctx.arc(0, 0, 28, 0, PI * 2, true);
+        ctx.clip();
+
+        ctx.fillStyle = "#F2360C";
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, PI * 2, false);
+        ctx.fill();
+
+        ctx.fillStyle = "#F2F2F2";
+        for (var i = 0; i < 4; i++) {
+          var angle = i * PI * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, this.radius, angle, angle + sector, false);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      };
+
+      // 5. 드로잉(모래 패임) 클래스
+      function Drawing(ctx) {
+        this.ctx = ctx;
+        this.hasDrawn = false;
+        this.lastDrawTime = 0;
+        this.mouse = { x: 0, y: 0 };
+        this.lastMouse = { x: 0, y: 0 };
+        this.isDrawing = false;
+
+        var self = this;
+
+        function getPos(e) {
+          if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          if (e.changedTouches && e.changedTouches.length > 0) {
+            return {
+              x: e.changedTouches[0].clientX,
+              y: e.changedTouches[0].clientY,
+            };
+          }
+          return { x: e.clientX || 0, y: e.clientY || 0 };
+        }
+
+        function onStart(e) {
+          if (e.cancelable) e.preventDefault();
+          self.isDrawing = true;
+          var p = getPos(e);
+          self.mouse.x = p.x;
+          self.mouse.y = p.y;
+          self.lastMouse.x = p.x;
+          self.lastMouse.y = p.y;
+        }
+
+        function onMove(e) {
+          if (e.cancelable) e.preventDefault();
+          if (!self.isDrawing) return;
+
+          var p = getPos(e);
+          self.mouse.x = p.x;
+          self.mouse.y = p.y;
+
+          var dx = self.mouse.x - self.lastMouse.x;
+          var dy = self.mouse.y - self.lastMouse.y;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+
+          var steps = Math.max(Math.floor(dist * 0.4), 3);
+          var invSteps = Math.pow(steps, -1);
+
+          for (var i = 0; i <= steps; i++) {
+            var x = self.lastMouse.x + dx * invSteps * i;
+            var y = self.lastMouse.y + dy * invSteps * i;
+            self.drawBrush(x, y, dist);
+          }
+
+          self.lastMouse.x = self.mouse.x;
+          self.lastMouse.y = self.mouse.y;
+        }
+
+        function onEnd(e) {
+          if (e.cancelable) e.preventDefault();
+          self.isDrawing = false;
+        }
+
+        // 터치 및 마우스 이벤트 등록 ({ passive: false } 필수!)
+        window.addEventListener("mousedown", onStart, false);
+        window.addEventListener("mousemove", onMove, false);
+        window.addEventListener("mouseup", onEnd, false);
+
+        window.addEventListener("touchstart", onStart, { passive: false });
+        window.addEventListener("touchmove", onMove, { passive: false });
+        window.addEventListener("touchend", onEnd, { passive: false });
+      }
+
+      Drawing.prototype.resize = function (w, h) {
+        this.stageWidth = w;
+        this.stageHeight = h;
+      };
+
+      Drawing.prototype.drawBrush = function (x, y, speed) {
+        var particleCount = 12;
+        var spread = 6;
+
+        if (speed > 12) {
+          spread = 12;
+          particleCount = 7;
+        } else if (speed < 4) {
+          spread = 4;
+          particleCount = 16;
+        }
+
+        this.hasDrawn = true;
+        this.lastDrawTime = new Date().getTime();
+
+        // 모래 패임 입자 (어두운 모래 음영 효과)
+        for (var i = 0; i < particleCount; i++) {
+          var px = x + Math.random() * spread * 2 - spread;
+          var py = y + Math.random() * spread * 2 - spread;
+          var r = Math.random() * 1.8 + 1.2;
+
+          this.ctx.fillStyle =
+            Math.random() > 0.3
+              ? "rgba(110, 85, 45, 0.45)"
+              : "rgba(255, 245, 220, 0.6)";
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, r, 0, Math.PI * 2, false);
+          this.ctx.fill();
+        }
+      };
+
+      Drawing.prototype.clear = function () {
+        this.ctx.clearRect(0, 0, this.stageWidth, this.stageHeight);
+        this.hasDrawn = false;
+      };
+
+      // 6. 단일 파도 클래스
+      function Wave(index, totalPoints, color) {
+        this.index = index;
+        this.totalPoints = totalPoints;
+        this.color = color;
+        this.isBack = false;
+        this.points = [];
+        this.delay = 0;
+        this.isResetWave = false;
+        this.resetFinished = false;
+      }
+
+      Wave.prototype.resize = function (w, h) {
+        this.stageWidth = w;
+        this.stageHeight = h;
+        var count = this.totalPoints - 1;
+        this.pointGap = this.stageWidth / Math.max(count, 1);
+        this.init();
+      };
+
+      Wave.prototype.init = function () {
+        this.points = [];
+        for (var i = 0; i < this.totalPoints; i++) {
+          var speed = Math.random() * 0.35 + 0.4;
+          this.points[i] = new Point(
+            this.index + i,
+            this.pointGap * i,
+            0,
+            speed,
+          );
+        }
+      };
+
+      Wave.prototype.makeWave = function () {
+        for (var i = 0; i < this.totalPoints; i++) {
+          this.points[i].targetY = 200 + Math.random() * 250;
+          this.points[i].speed = Math.random() * 1.2 + 1;
+        }
+      };
+
+      Wave.prototype.goBack = function () {
+        for (var i = 0; i < this.totalPoints; i++) {
+          this.points[i].targetY = 0;
+          this.points[i].speed = Math.random() * 2 + 0.5;
+        }
+      };
+
+      Wave.prototype.resetWave = function () {
+        this.isResetWave = true;
+        for (var i = 0; i < this.totalPoints; i++) {
+          this.points[i].y = 0;
+          this.points[i].targetY = this.stageHeight;
+          this.points[i].speed = Math.random() * 1.2 + 1;
+        }
+      };
+
+      Wave.prototype.draw = function (ctx) {
+        if (this.delay > 0) {
+          this.delay--;
+          return;
+        }
+
+        var arrivedCount = 0;
+        for (var j = 0; j < this.totalPoints; j++) {
+          if (this.points[j].y === this.points[j].targetY) {
+            arrivedCount++;
+          }
+          this.points[j].update();
+        }
+
+        this.drawWave(ctx, this.points, 0.85, this.color);
+
+        if (arrivedCount === this.totalPoints) {
+          if (this.isResetWave) {
+            this.resetFinished = true;
+            this.isResetWave = false;
+            this.makeWave();
+            return;
+          }
+
+          if (!this.isBack) {
+            this.goBack();
+            this.isBack = true;
+          } else {
+            this.makeWave();
+            this.isBack = false;
+          }
+        }
+      };
+
+      Wave.prototype.drawWave = function (ctx, points, alpha, waveColor) {
+        var prevX = points[0].x;
+        var prevY = points[0].y;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.fillStyle = waveColor;
+
+        for (var i = 1; i < this.totalPoints; i++) {
+          var cx = (prevX + points[i].x) * 0.5;
+          var cy = (prevY + points[i].y) * 0.5;
+          ctx.quadraticCurveTo(prevX, prevY, cx, cy);
+          prevX = points[i].x;
+          prevY = points[i].y;
+        }
+        ctx.lineTo(prevX, prevY);
+        ctx.lineTo(this.stageWidth, 0);
+        ctx.lineTo(0, 0);
+        ctx.fill();
+        ctx.closePath();
+        ctx.restore();
+      };
+
+      // 7. 파도 그룹 및 튜브 통합
+      function WaveGroup() {
+        this.totalWaves = 3;
+        this.waves = [
+          new Wave(1, 6, "#8fd4ff"),
+          new Wave(1, 6, "#0088ff"),
+          new Wave(1, 6, "#0055d4"),
+        ];
+        this.waves[0].delay = 30;
+        this.waves[1].delay = 15;
+        this.waves[2].delay = 0;
+        this.isResetting = false;
+        this.resetFinished = false;
+        this.hasTriggeredClear = false;
+        this.tubes = [];
+      }
+
+      WaveGroup.prototype.resize = function (w, h) {
+        this.stageWidth = w;
+        this.stageHeight = h;
+        for (var i = 0; i < this.totalWaves; i++) {
+          this.waves[i].resize(this.stageWidth, this.stageHeight);
+        }
+      };
+
+      WaveGroup.prototype.update = function () {
+        for (var i = this.tubes.length - 1; i >= 0; i--) {
+          var tube = this.tubes[i];
+          tube.update(this.isResetting);
+          if (tube.isOut()) {
+            this.tubes.splice(i, 1);
+          }
+        }
+      };
+
+      WaveGroup.prototype.draw = function (ctx, waveReset) {
+        for (var i = 0; i < this.waves.length; i++) {
+          this.waves[i].draw(ctx);
+        }
+
+        for (var j = 0; j < this.tubes.length; j++) {
+          this.tubes[j].draw(ctx);
+        }
+
+        // 5초간 입력 없으면 쓸어내리는 파도 생성 및 튜브 투입
+        if (waveReset && !this.isResetting) {
+          this.isResetting = true;
+          this.hasTriggeredClear = false;
+          for (var k = 0; k < this.totalWaves; k++) {
+            this.waves[k].resetWave();
+          }
+
+          var targetWave = this.waves[0];
+          if (targetWave && targetWave.points.length > 0) {
+            var pointIdx = Math.floor(Math.random() * targetWave.points.length);
+            var selectedPoint = targetWave.points[pointIdx];
+            this.tubes.push(
+              new Tube(selectedPoint.x, selectedPoint.y, 45, selectedPoint),
+            );
+          }
+        }
+
+        this.resetFinished = false;
+
+        if (this.isResetting) {
+          for (var m = 0; m < this.totalWaves; m++) {
+            if (this.waves[m].resetFinished) {
+              if (!this.hasTriggeredClear) {
+                this.resetFinished = true;
+                this.hasTriggeredClear = true;
+              }
+              this.waves[m].resetFinished = false;
+            }
+          }
+
+          var anyResetting = false;
+          for (var n = 0; n < this.totalWaves; n++) {
+            if (this.waves[n].isResetWave) {
+              anyResetting = true;
+              break;
+            }
+          }
+          if (!anyResetting) this.isResetting = false;
+        }
+      };
+
+      // 8. 메인 메인 애플리케이션
+      function App() {
+        this.sandCanvas = document.createElement("canvas");
+        this.sandCtx = this.sandCanvas.getContext("2d");
+
+        this.drawCanvas = document.createElement("canvas");
+        this.drawCtx = this.drawCanvas.getContext("2d");
+
+        this.waveCanvas = document.createElement("canvas");
+        this.waveCtx = this.waveCanvas.getContext("2d");
+
+        document.body.appendChild(this.sandCanvas);
+        document.body.appendChild(this.drawCanvas);
+        document.body.appendChild(this.waveCanvas);
+
+        this.waveGroup = new WaveGroup();
+        this.drawing = new Drawing(this.drawCtx);
+
+        var self = this;
+        window.addEventListener(
+          "resize",
+          function () {
+            self.resize();
+          },
+          false,
+        );
+        this.resize();
+
+        this.lastFrameTime = 0;
+        requestAnimationFrame(function (t) {
+          self.animate(t);
+        });
+      }
+
+      App.prototype.resize = function () {
+        this.stageWidth = window.innerWidth || document.body.clientWidth || 800;
+        this.stageHeight =
+          window.innerHeight || document.body.clientHeight || 600;
+
+        this.sandCanvas.width = this.stageWidth;
+        this.sandCanvas.height = this.stageHeight;
+
+        this.drawCanvas.width = this.stageWidth;
+        this.drawCanvas.height = this.stageHeight;
+
+        this.waveCanvas.width = this.stageWidth;
+        this.waveCanvas.height = this.stageHeight;
+
+        this.drawSandBackground();
+
+        this.waveGroup.resize(this.stageWidth, this.stageHeight);
+        this.drawing.resize(this.stageWidth, this.stageHeight);
+      };
+
+      App.prototype.drawSandBackground = function () {
+        // 백그라운드 모래 질감 채우기
+        this.sandCtx.fillStyle = "#e2d1a6";
+        this.sandCtx.fillRect(0, 0, this.stageWidth, this.stageHeight);
+
+        // 은은한 모래 입자 질감
+        for (var i = 0; i < 800; i++) {
+          var rx = Math.random() * this.stageWidth;
+          var ry = Math.random() * this.stageHeight;
+          this.sandCtx.fillStyle =
+            Math.random() > 0.5
+              ? "rgba(255, 255, 255, 0.25)"
+              : "rgba(160, 130, 80, 0.15)";
+          this.sandCtx.fillRect(rx, ry, 1.5, 1.5);
+        }
+      };
+
+      App.prototype.animate = function (t) {
+        var self = this;
+        var now = new Date().getTime();
+
+        if (now - this.lastFrameTime > 20) {
+          var waveReset = false;
+          if (this.drawing.hasDrawn) {
+            var idleTime = now - this.drawing.lastDrawTime;
+            waveReset = idleTime > 5000;
+          }
+
+          this.waveCtx.clearRect(0, 0, this.stageWidth, this.stageHeight);
+          this.waveGroup.update();
+          this.waveGroup.draw(this.waveCtx, waveReset);
+
+          if (this.waveGroup.resetFinished) {
+            this.drawing.clear();
+            this.waveGroup.resetFinished = false;
+          }
+
+          this.lastFrameTime = now;
+        }
+
+        requestAnimationFrame(function (t) {
+          self.animate(t);
+        });
+      };
+
+      // 문서 로드 완료 후 실행
+      window.onload = function () {
+        new App();
+      };
+    </script>
   </body>
 </html>
