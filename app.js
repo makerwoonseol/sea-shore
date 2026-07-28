@@ -1,759 +1,532 @@
-// ==========================================
-// 1. 공통 헬퍼 함수 (iOS 9 / ES5 호환용)
-// ==========================================
-function _classCallCheck(a, n) {
-  if (!(a instanceof n))
-    throw new TypeError("Cannot call a class as a function");
-}
-function _defineProperties(e, r) {
-  for (var t = 0; t < r.length; t++) {
-    var o = r[t];
-    ((o.enumerable = o.enumerable || !1),
-      (o.configurable = !0),
-      "value" in o && (o.writable = !0),
-      Object.defineProperty(e, _toPropertyKey(o.key), o));
-  }
-}
-function _createClass(e, r, t) {
-  return (
-    r && _defineProperties(e.prototype, r),
-    t && _defineProperties(e, t),
-    Object.defineProperty(e, "prototype", { writable: !1 }),
-    e
-  );
-}
-function _toPropertyKey(t) {
-  var i = _toPrimitive(t, "string");
-  return "symbol" == typeof i ? i : i + "";
-}
-function _toPrimitive(t, r) {
-  if ("object" != typeof t || !t) return t;
-  var e = t[Symbol.toPrimitive];
-  if (void 0 !== e) {
-    var i = e.call(t, r || "default");
-    if ("object" != typeof i) return i;
-    throw new TypeError("@@toPrimitive must return a primitive value.");
-  }
-  return ("string" === r ? String : Number)(t);
-}
-function _createForOfIteratorHelper(r, e) {
-  var t =
-    ("undefined" != typeof Symbol && r[Symbol.iterator]) || r["@@iterator"];
-  if (!t) {
-    if (
-      Array.isArray(r) ||
-      (t = _unsupportedIterableToArray(r)) ||
-      (e && r && "number" == typeof r.length)
-    ) {
-      t && (r = t);
-      var _n = 0,
-        F = function F() {};
-      return {
-        s: F,
-        n: function n() {
-          return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] };
-        },
-        e: function e(r) {
-          throw r;
-        },
-        f: F,
-      };
-    }
-    throw new TypeError(
-      "Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.",
-    );
-  }
-  var o,
-    a = !0,
-    u = !1;
-  return {
-    s: function s() {
-      t = t.call(r);
-    },
-    n: function n() {
-      var r = t.next();
-      return ((a = r.done), r);
-    },
-    e: function e(r) {
-      ((u = !0), (o = r));
-    },
-    f: function f() {
-      try {
-        a || null == t.return || t.return();
-      } finally {
-        if (u) throw o;
-      }
-    },
+// requestAnimationFrame 구형 브라우저 대응
+window.requestAnimationFrame =
+  window.requestAnimationFrame ||
+  window.webkitRequestAnimationFrame ||
+  function (callback) {
+    return setTimeout(callback, 1000 / 60);
   };
+
+// ==========================================
+// 1. Point 클래스
+// ==========================================
+function Point(index, x, y, speed) {
+  this.x = x;
+  this.y = y;
+  this.fixedY = y;
+  this.speed = speed;
+  this.cur = index;
+  this.targetY = 500 + Math.random() * 200;
 }
-function _unsupportedIterableToArray(r, a) {
-  if (r) {
-    if ("string" == typeof r) return _arrayLikeToArray(r, a);
-    var t = {}.toString.call(r).slice(8, -1);
-    return (
-      "Object" === t && r.constructor && (t = r.constructor.name),
-      "Map" === t || "Set" === t
-        ? Array.from(r)
-        : "Arguments" === t ||
-            /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t)
-          ? _arrayLikeToArray(r, a)
-          : void 0
+
+Point.prototype.update = function () {
+  if (this.y < this.targetY) {
+    this.y += this.speed * 2;
+    if (this.y > this.targetY) this.y = this.targetY;
+  } else if (this.y > this.targetY) {
+    this.y -= this.speed;
+    if (this.y < this.targetY) this.y = this.targetY;
+  }
+};
+
+// ==========================================
+// 2. Tube 클래스
+// ==========================================
+function Tube(x, y, radius, point) {
+  this.x = x;
+  this.y = y;
+  this.radius = radius;
+  this.point = point;
+  this.time = 0;
+  this.rotation = 0;
+}
+
+Tube.prototype.update = function (isResetting) {
+  if (isResetting) {
+    this.y += 2 * 0.9;
+  } else {
+    this.y -= this.point.speed * 0.9;
+  }
+  this.time += 0.02;
+  this.rotation = Math.sin(this.time) * 0.2;
+};
+
+Tube.prototype.isOut = function () {
+  return this.y + this.radius * 2 < 0;
+};
+
+Tube.prototype.drawShadowRing = function (ctx) {
+  var outer = this.radius + 3;
+  var inner = 28;
+
+  ctx.beginPath();
+  for (var deg = 0; deg <= 360; deg += 6) {
+    var rad = (deg * Math.PI) / 180;
+    var noise =
+      Math.sin(rad * 5 + this.time * 2.5) * 2 +
+      Math.sin(rad * 8 - this.time * 3.2) * 1.2;
+    var r = outer + noise;
+    var x = Math.cos(rad) * r;
+    var y = Math.sin(rad) * r;
+
+    if (deg === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+
+  for (var deg = 360; deg >= 0; deg -= 6) {
+    var rad = (deg * Math.PI) / 180;
+    var noise = Math.sin(rad * 4 + this.time * 1.7) * 1.5;
+    var r = inner + noise;
+    var x = Math.cos(rad) * r;
+    var y = Math.sin(rad) * r;
+
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+};
+
+Tube.prototype.draw = function (ctx) {
+  ctx.save();
+  ctx.translate(this.x + 12, this.y + 12);
+  ctx.rotate(this.rotation * 0.3);
+
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = "#001122";
+
+  if ("filter" in ctx) {
+    ctx.filter = "blur(10px)";
+  }
+
+  this.drawShadowRing(ctx);
+  ctx.restore();
+
+  if ("filter" in ctx) {
+    ctx.filter = "none";
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.save();
+  ctx.translate(this.x, this.y);
+  ctx.rotate(this.rotation);
+
+  // 클리핑 패스로 도넛 구멍 뚫기
+  ctx.beginPath();
+  ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
+  ctx.arc(0, 0, 28, 0, Math.PI * 2, true);
+  ctx.clip();
+
+  // 빨간 바탕
+  ctx.fillStyle = "#F2360C";
+  ctx.beginPath();
+  ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
+  ctx.fill();
+
+  // 흰색 줄무늬 4개
+  ctx.fillStyle = "#F2F2F2";
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, this.radius, 0, Math.PI / 6, false);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, this.radius, Math.PI, Math.PI + Math.PI / 6, false);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, this.radius, -Math.PI / 2, -Math.PI / 2 + Math.PI / 6, false);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, this.radius, Math.PI / 2, Math.PI / 2 + Math.PI / 6, false);
+  ctx.fill();
+
+  ctx.restore();
+};
+
+// ==========================================
+// 3. Drawing 클래스
+// ==========================================
+function Drawing(ctx) {
+  var self = this;
+  this.ctx = ctx;
+  this.ctx.lineWidth = 8;
+  this.ctx.lineCap = "round";
+  this.ctx.lineJoin = "round";
+  this.hasDrawn = false;
+  this.lastDrawTime = 0;
+  this.mouse = { x: 0, y: 0 };
+  this.lastMouse = { x: 0, y: 0 };
+  this.isDrawing = false;
+
+  function getPos(e) {
+    if (e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  var onStart = function (event) {
+    self.isDrawing = true;
+    var pos = getPos(event);
+    self.mouse.x = pos.x;
+    self.mouse.y = pos.y;
+    self.lastMouse.x = pos.x;
+    self.lastMouse.y = pos.y;
+  };
+
+  var onMove = function (event) {
+    var pos = getPos(event);
+    self.mouse.x = pos.x;
+    self.mouse.y = pos.y;
+    if (self.isDrawing === true) {
+      var dx = self.mouse.x - self.lastMouse.x;
+      var dy = self.mouse.y - self.lastMouse.y;
+      for (var i = 0; i <= 10; i++) {
+        var x = self.lastMouse.x + (dx / 10) * i;
+        var y = self.lastMouse.y + (dy / 10) * i;
+        self.drawBrush(x, y);
+      }
+    }
+    self.lastMouse.x = self.mouse.x;
+    self.lastMouse.y = self.mouse.y;
+  };
+
+  var onEnd = function () {
+    self.isDrawing = false;
+  };
+
+  window.addEventListener("mousedown", onStart);
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onEnd);
+
+  window.addEventListener("touchstart", onStart);
+  window.addEventListener("touchmove", onMove);
+  window.addEventListener("touchend", onEnd);
+}
+
+Drawing.prototype.resize = function (stageWidth, stageHeight) {
+  this.stageWidth = stageWidth;
+  this.stageHeight = stageHeight;
+};
+
+Drawing.prototype.drawBrush = function (x, y) {
+  for (var i = 0; i <= 10; i++) {
+    var px = x + Math.random() * 20 - 10;
+    var py = y + Math.random() * 20 - 10;
+    var radius = 10;
+    var dx = px - x;
+    var dy = py - y;
+    this.hasDrawn = true;
+    this.lastDrawTime = Date.now();
+    if (dx * dx + dy * dy <= radius * radius) {
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, Math.random() * 2 + 0.1, 0, Math.PI * 2, false);
+      this.ctx.fillStyle = "#e8dfc8";
+      this.ctx.fill();
+    }
+  }
+};
+
+Drawing.prototype.clear = function () {
+  this.ctx.clearRect(0, 0, this.stageWidth, this.stageHeight);
+  this.hasDrawn = false;
+};
+
+// ==========================================
+// 4. Wave 클래스
+// ==========================================
+function Wave(index, totalPoints, color) {
+  this.index = index;
+  this.totalPoints = totalPoints;
+  this.color = color;
+  this.isBack = false;
+  this.points = [];
+  this.trails = [];
+  this.delay = 0;
+  this.isResetWave = false;
+  this.resetFinished = false;
+}
+
+Wave.prototype.resize = function (stageWidth, stageHeight) {
+  this.stageWidth = stageWidth;
+  this.stageHeight = stageHeight;
+  this.centerX = stageWidth / 2;
+  this.centerY = stageHeight / 2;
+  this.pointGap = this.stageWidth / (this.totalPoints - 1);
+  this.init();
+};
+
+Wave.prototype.init = function () {
+  this.points = [];
+  for (var i = 0; i < this.totalPoints; i++) {
+    this.points[i] = new Point(
+      this.index + i,
+      this.pointGap * i,
+      0,
+      Math.random() / 3 + 0.4,
     );
   }
-}
-function _arrayLikeToArray(r, a) {
-  (null == a || a > r.length) && (a = r.length);
-  for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e];
-  return n;
-}
+};
 
-// ==========================================
-// 2. Point 클래스
-// ==========================================
-var Point = /*#__PURE__*/ (function () {
-  function Point(index, x, y, speed) {
-    _classCallCheck(this, Point);
-    this.x = x;
-    this.y = y;
-    this.fixedY = y;
-    this.speed = speed;
-    this.cur = index;
-    this.targetY = 500 + Math.random() * 200;
+Wave.prototype.makeWave = function () {
+  for (var i = 0; i < this.totalPoints; i++) {
+    this.points[i].targetY = 200 + Math.random() * 200;
+    this.points[i].speed = Math.random() * 1.2 + 1;
   }
-  return _createClass(Point, [
-    {
-      key: "update",
-      value: function update() {
-        if (this.y < this.targetY) {
-          this.y += this.speed * 2;
-          if (this.y > this.targetY) {
-            this.y = this.targetY;
-          }
-        } else if (this.y > this.targetY) {
-          this.y -= this.speed;
-          if (this.y < this.targetY) {
-            this.y = this.targetY;
-          }
-        }
-      },
-    },
-  ]);
-})();
+};
 
-// ==========================================
-// 3. Tube 클래스 (보내주신 원본 100% 복원)
-// ==========================================
-var Tube = /*#__PURE__*/ (function () {
-  function Tube(x, y, radius, point) {
-    _classCallCheck(this, Tube);
-    this.x = x;
-    this.y = y;
-    this.radius = radius;
-    this.point = point;
-
-    this.time = 0;
-    this.rotation = 0;
+Wave.prototype.goBack = function () {
+  for (var i = 0; i < this.totalPoints; i++) {
+    this.points[i].targetY = 0;
+    this.points[i].speed = Math.random() * 2 + 0.4;
   }
-  return _createClass(Tube, [
-    {
-      key: "update",
-      value: function update(isResetting) {
-        if (isResetting) {
-          this.y += 2 * 0.9;
-        } else {
-          this.y -= this.point.speed * 0.9;
-        }
-        this.time += 0.02;
-        this.rotation = Math.sin(this.time) * 0.2;
-      },
-    },
-    {
-      key: "isOut",
-      value: function isOut() {
-        return this.y + this.radius * 2 < 0;
-      },
-    },
-    {
-      key: "drawShadowRing",
-      value: function drawShadowRing(ctx) {
-        var outer = this.radius + 3;
-        var inner = 28;
+};
 
-        ctx.beginPath();
-        for (var deg = 0; deg <= 360; deg += 6) {
-          var rad = (deg * Math.PI) / 180;
-          var noise =
-            Math.sin(rad * 5 + this.time * 2.5) * 2 +
-            Math.sin(rad * 8 - this.time * 3.2) * 1.2;
-          var r = outer + noise;
-          var x = Math.cos(rad) * r;
-          var y = Math.sin(rad) * r;
+Wave.prototype.resetWave = function () {
+  this.isResetWave = true;
+  for (var i = 0; i < this.totalPoints; i++) {
+    this.points[i].y = 0;
+    this.points[i].targetY = this.stageHeight;
+    this.points[i].speed = Math.random() * 1.2 + 1;
+  }
+};
 
-          if (deg === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
+Wave.prototype.draw = function (ctx) {
+  if (this.delay > 0) {
+    this.delay--;
+    return;
+  }
+  for (var i = this.trails.length - 1; i >= 0; i--) {
+    var trail = this.trails[i];
+    this.drawWave(ctx, trail.points, trail.alpha, this.color);
+    trail.alpha -= 0.001;
+    if (trail.alpha <= 0) {
+      this.trails.splice(i, 1);
+    }
+  }
+  var arrivedCount = 0;
+  for (var j = 0; j < this.totalPoints; j++) {
+    if (this.points[j].y === this.points[j].targetY) {
+      arrivedCount++;
+    }
+    this.points[j].update();
+  }
 
-        for (var deg = 360; deg >= 0; deg -= 6) {
-          var rad = (deg * Math.PI) / 180;
-          var noise = Math.sin(rad * 4 + this.time * 1.7) * 1.5;
-          var r = inner + noise;
-          var x = Math.cos(rad) * r;
-          var y = Math.sin(rad) * r;
+  this.drawWave(ctx, this.points, 0.99, this.color);
 
-          ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-      },
-    },
-    {
-      key: "draw",
-      value: function draw(ctx) {
-        ctx.save();
+  if (arrivedCount === this.totalPoints) {
+    var trailPoints = [];
+    for (var k = 0; k < this.totalPoints; k++) {
+      trailPoints.push({ x: this.points[k].x, y: this.points[k].y });
+    }
+    if (this.isResetWave) {
+      this.resetFinished = true;
+      this.isResetWave = false;
+      return;
+    }
+    this.trails.push({ points: trailPoints, alpha: 0.5 });
+    if (this.isBack === false) {
+      this.goBack();
+      this.isBack = true;
+    } else {
+      this.makeWave();
+      this.isBack = false;
+    }
+  }
+};
 
-        ctx.translate(this.x + 12, this.y + 12);
-        ctx.rotate(this.rotation * 0.3);
-
-        ctx.globalAlpha = 0.22;
-        ctx.fillStyle = "#001122";
-
-        // iOS 9 호환성 처리 (ctx.filter 지원 여부 체크)
-        if ("filter" in ctx) {
-          ctx.filter = "blur(10px)";
-        }
-
-        this.drawShadowRing(ctx);
-
-        ctx.restore();
-
-        if ("filter" in ctx) {
-          ctx.filter = "none";
-        }
-        ctx.globalAlpha = 1;
-
-        ctx.save();
-
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.rotation);
-
-        // 클리핑 패스로 도넛 구멍 뚫기
-        ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
-        ctx.arc(0, 0, 28, 0, Math.PI * 2, true);
-        ctx.clip();
-
-        // 빨간색 바탕
-        ctx.fillStyle = "#F2360C";
-        ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
-        ctx.fill();
-
-        // 흰색 줄무늬 1
-        ctx.fillStyle = "#F2F2F2";
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.arc(0, 0, this.radius, 0, Math.PI / 6, false);
-        ctx.fill();
-
-        // 흰색 줄무늬 2
-        ctx.fillStyle = "#F2F2F2";
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.arc(0, 0, this.radius, Math.PI, Math.PI + Math.PI / 6, false);
-        ctx.fill();
-
-        // 흰색 줄무늬 3
-        ctx.fillStyle = "#F2F2F2";
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.arc(
-          0,
-          0,
-          this.radius,
-          -Math.PI / 2,
-          -Math.PI / 2 + Math.PI / 6,
-          false,
-        );
-        ctx.fill();
-
-        // 흰색 줄무늬 4
-        ctx.fillStyle = "#F2F2F2";
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.arc(
-          0,
-          0,
-          this.radius,
-          Math.PI / 2,
-          Math.PI / 2 + Math.PI / 6,
-          false,
-        );
-        ctx.fill();
-
-        ctx.restore();
-      },
-    },
-  ]);
-})();
+Wave.prototype.drawWave = function (ctx, points, alpha, waveColor) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  var prevX = points[0].x;
+  var prevY = points[0].y;
+  ctx.moveTo(prevX, prevY);
+  ctx.fillStyle = waveColor;
+  for (var i = 1; i < this.totalPoints; i++) {
+    var cx = (prevX + points[i].x) / 2;
+    var cy = (prevY + points[i].y) / 2;
+    ctx.quadraticCurveTo(prevX, prevY, cx, cy);
+    prevX = points[i].x;
+    prevY = points[i].y;
+  }
+  ctx.lineTo(prevX, prevY);
+  ctx.lineTo(this.stageWidth, 0);
+  ctx.lineTo(0, 0);
+  ctx.fill();
+  ctx.closePath();
+  ctx.restore();
+};
 
 // ==========================================
-// 4. Drawing 클래스 (iOS 9 터치 이벤트 추가)
+// 5. WaveGroup 클래스
 // ==========================================
-var Drawing = /*#__PURE__*/ (function () {
-  function Drawing(ctx) {
-    var _this = this;
-    _classCallCheck(this, Drawing);
-    this.ctx = ctx;
-    this.ctx.lineWidth = 8;
-    this.ctx.lineCap = "round";
-    this.ctx.lineJoin = "round";
-    this.hasDrawn = false;
-    this.lastDrawTime = 0;
-    this.mouse = { x: 0, y: 0 };
-    this.lastMouse = { x: 0, y: 0 };
-    this.isDrawing = false;
+function WaveGroup() {
+  this.totalWaves = 3;
+  this.waves = [
+    new Wave(1, 6, "#8fd4ff"),
+    new Wave(1, 6, "#0088ff"),
+    new Wave(1, 6, "#0080ff"),
+  ];
+  this.waves[0].delay = 40;
+  this.waves[1].delay = 20;
+  this.waves[2].delay = 0;
+  this.isResetting = false;
+  this.resetFinished = false;
+  this.hasTriggeredClear = false;
+  this.tubes = [];
+}
 
-    // 터치/마우스 좌표 추출 헬퍼 (iOS 9 대응)
-    function getPos(e) {
-      if (e.touches && e.touches.length > 0) {
-        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+WaveGroup.prototype.resize = function (stageWidth, stageHeight) {
+  this.stageWidth = stageWidth;
+  this.stageHeight = stageHeight;
+  for (var i = 0; i < this.totalWaves; i++) {
+    this.waves[i].resize(this.stageWidth, this.stageHeight);
+  }
+};
+
+WaveGroup.prototype.update = function () {
+  for (var i = this.tubes.length - 1; i >= 0; i--) {
+    var tube = this.tubes[i];
+    tube.update(this.isResetting);
+    if (tube.isOut()) {
+      this.tubes.splice(i, 1);
+    }
+  }
+};
+
+WaveGroup.prototype.draw = function (ctx, waveReset) {
+  for (var i = 0; i < this.waves.length; i++) {
+    this.waves[i].draw(ctx);
+  }
+
+  for (var j = 0; j < this.tubes.length; j++) {
+    this.tubes[j].draw(ctx);
+  }
+
+  if (waveReset && !this.isResetting) {
+    this.isResetting = true;
+    this.hasTriggeredClear = false;
+    for (var k = 0; k < this.totalWaves; k++) {
+      this.waves[k].resetWave();
+    }
+    var radius = 50;
+    var x = Math.random() * (this.stageWidth - radius * 2) + radius;
+    var y = -60 / 2;
+    var closestPoint = null;
+    var closestDistance = Infinity;
+
+    for (var m = 0; m < this.waves[2].points.length; m++) {
+      var point = this.waves[2].points[m];
+      var distance = Math.abs(x - point.x);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestPoint = point;
       }
-      return { x: e.clientX, y: e.clientY };
+    }
+    this.tubes.push(new Tube(x, y, radius, closestPoint));
+  }
+
+  this.resetFinished = false;
+
+  if (this.isResetting) {
+    for (var n = 0; n < this.totalWaves; n++) {
+      if (this.waves[n].resetFinished) {
+        if (!this.hasTriggeredClear) {
+          this.resetFinished = true;
+          this.hasTriggeredClear = true;
+        }
+        this.waves[n].resetFinished = false;
+      }
     }
 
-    var onStart = function (event) {
-      _this.isDrawing = true;
-      var pos = getPos(event);
-      _this.mouse.x = pos.x;
-      _this.mouse.y = pos.y;
-      _this.lastMouse.x = pos.x;
-      _this.lastMouse.y = pos.y;
-    };
-
-    var onMove = function (event) {
-      var pos = getPos(event);
-      _this.mouse.x = pos.x;
-      _this.mouse.y = pos.y;
-      if (_this.isDrawing === true) {
-        var dx = _this.mouse.x - _this.lastMouse.x;
-        var dy = _this.mouse.y - _this.lastMouse.y;
-        for (var i = 0; i <= 10; i++) {
-          var x = _this.lastMouse.x + (dx / 10) * i;
-          var y = _this.lastMouse.y + (dy / 10) * i;
-          _this.drawBrush(x, y);
-        }
+    var anyResetting = false;
+    for (var p = 0; p < this.totalWaves; p++) {
+      if (this.waves[p].isResetWave) {
+        anyResetting = true;
+        break;
       }
-      _this.lastMouse.x = _this.mouse.x;
-      _this.lastMouse.y = _this.mouse.y;
-    };
+    }
 
-    var onEnd = function () {
-      _this.isDrawing = false;
-    };
-
-    // 마우스 이벤트
-    window.addEventListener("mousedown", onStart);
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onEnd);
-
-    // iOS 9 Safari 터치 이벤트
-    window.addEventListener("touchstart", onStart);
-    window.addEventListener("touchmove", onMove);
-    window.addEventListener("touchend", onEnd);
+    if (!anyResetting) {
+      this.isResetting = false;
+    }
   }
-  return _createClass(Drawing, [
-    {
-      key: "resize",
-      value: function resize(stageWidth, stageHeight) {
-        this.stageWidth = stageWidth;
-        this.stageHeight = stageHeight;
-      },
-    },
-    {
-      key: "drawBrush",
-      value: function drawBrush(x, y) {
-        for (var i = 0; i <= 10; i++) {
-          var px = x + Math.random() * 20 - 10;
-          var py = y + Math.random() * 20 - 10;
-          var radius = 10;
-          var dx = px - x;
-          var dy = py - y;
-          this.hasDrawn = true;
-          this.lastDrawTime = Date.now();
-          if (dx * dx + dy * dy <= radius * radius) {
-            this.ctx.beginPath();
-            this.ctx.arc(
-              px,
-              py,
-              Math.random() * 2 + 0.1,
-              0,
-              Math.PI * 2,
-              false,
-            );
-            this.ctx.fillStyle = "#e8dfc8";
-            this.ctx.fill();
-          }
-        }
-      },
-    },
-    {
-      key: "clear",
-      value: function clear() {
-        this.ctx.clearRect(0, 0, this.stageWidth, this.stageHeight);
-        this.hasDrawn = false;
-      },
-    },
-  ]);
-})();
+};
 
 // ==========================================
-// 5. Wave 클래스
+// 6. App 클래스 및 메인 실행
 // ==========================================
-var Wave = /*#__PURE__*/ (function () {
-  function Wave(index, totalPoints, color) {
-    _classCallCheck(this, Wave);
-    this.index = index;
-    this.totalPoints = totalPoints;
-    this.color = color;
-    this.isBack = false;
-    this.points = [];
-    this.trails = [];
-    this.delay = 0;
-    this.isResetWave = false;
-    this.resetFinished = false;
+function App() {
+  this.waveCanvas = document.createElement("canvas");
+  this.waveCtx = this.waveCanvas.getContext("2d");
+  this.sandCanvas = document.createElement("canvas");
+  this.sandCtx = this.sandCanvas.getContext("2d");
+  this.drawCanvas = document.createElement("canvas");
+  this.drawCtx = this.drawCanvas.getContext("2d");
+
+  document.body.appendChild(this.sandCanvas);
+  document.body.appendChild(this.drawCanvas);
+  document.body.appendChild(this.waveCanvas);
+
+  this.waveGroup = new WaveGroup();
+  this.drawing = new Drawing(this.drawCtx);
+
+  var self = this;
+  window.addEventListener(
+    "resize",
+    function () {
+      self.resize();
+    },
+    false,
+  );
+  this.resize();
+
+  requestAnimationFrame(function (t) {
+    self.animate(t);
+  });
+}
+
+App.prototype.resize = function () {
+  this.stageWidth = document.body.clientWidth || window.innerWidth;
+  this.stageHeight = document.body.clientHeight || window.innerHeight;
+
+  this.waveCanvas.width = this.stageWidth * 2;
+  this.waveCanvas.height = this.stageHeight * 2;
+  this.waveCtx.scale(2, 2);
+
+  this.drawCanvas.width = this.stageWidth * 2;
+  this.drawCanvas.height = this.stageHeight * 2;
+  this.drawCtx.scale(2, 2);
+
+  this.waveGroup.resize(this.stageWidth, this.stageHeight);
+  this.drawing.resize(this.stageWidth, this.stageHeight);
+};
+
+App.prototype.animate = function (t) {
+  var self = this;
+  var waveReset = false;
+  if (this.drawing.hasDrawn === true) {
+    var idleTime = Date.now() - this.drawing.lastDrawTime;
+    waveReset = idleTime > 5000;
   }
-  return _createClass(Wave, [
-    {
-      key: "resize",
-      value: function resize(stageWidth, stageHeight) {
-        this.stageWidth = stageWidth;
-        this.stageHeight = stageHeight;
-        this.centerX = stageWidth / 2;
-        this.centerY = stageHeight / 2;
-        this.pointGap = this.stageWidth / (this.totalPoints - 1);
-        this.init();
-      },
-    },
-    {
-      key: "init",
-      value: function init() {
-        this.points = [];
-        for (var i = 0; i < this.totalPoints; i++) {
-          var point = new Point(
-            this.index + i,
-            this.pointGap * i,
-            0,
-            Math.random() / 3 + 0.4,
-          );
-          this.points[i] = point;
-        }
-      },
-    },
-    {
-      key: "makeWave",
-      value: function makeWave() {
-        for (var i = 0; i < this.totalPoints; i++) {
-          this.points[i].targetY = 200 + Math.random() * 200;
-          this.points[i].speed = Math.random() * 1.2 + 1;
-        }
-      },
-    },
-    {
-      key: "goBack",
-      value: function goBack() {
-        for (var i = 0; i < this.totalPoints; i++) {
-          this.points[i].targetY = 0;
-          this.points[i].speed = Math.random() * 2 + 0.4;
-        }
-      },
-    },
-    {
-      key: "resetWave",
-      value: function resetWave() {
-        this.isResetWave = true;
-        for (var i = 0; i < this.totalPoints; i++) {
-          this.points[i].y = 0;
-          this.points[i].targetY = this.stageHeight;
-          this.points[i].speed = Math.random() * 1.2 + 1;
-        }
-      },
-    },
-    {
-      key: "draw",
-      value: function draw(ctx) {
-        if (this.delay > 0) {
-          this.delay--;
-          return;
-        }
-        for (var i = this.trails.length - 1; i >= 0; i--) {
-          var trail = this.trails[i];
-          this.drawWave(ctx, trail.points, trail.alpha, this.color);
-          trail.alpha -= 0.001;
-          if (trail.alpha <= 0) {
-            this.trails.splice(i, 1);
-          }
-        }
-        var arrivedCount = 0;
-        for (var _i = 0; _i < this.totalPoints; _i++) {
-          var arrived = this.points[_i].y === this.points[_i].targetY;
-          if (arrived == true) {
-            arrivedCount++;
-          }
-          this.points[_i].update();
-        }
+  this.waveCtx.clearRect(0, 0, this.stageWidth, this.stageHeight);
+  this.waveGroup.update();
+  this.waveGroup.draw(this.waveCtx, waveReset);
 
-        this.drawWave(ctx, this.points, 0.99, this.color);
-        if (arrivedCount === this.totalPoints) {
-          var _trail = [];
-          for (var _i2 = 0; _i2 < this.totalPoints; _i2++) {
-            _trail.push({
-              x: this.points[_i2].x,
-              y: this.points[_i2].y,
-            });
-          }
-          if (this.isResetWave) {
-            this.resetFinished = true;
-            this.isResetWave = false;
-            return;
-          }
-          this.trails.push({
-            points: _trail,
-            alpha: 0.5,
-          });
-          if (this.isBack == false) {
-            this.goBack();
-            this.isBack = true;
-          } else {
-            this.makeWave();
-            this.isBack = false;
-          }
-        }
-      },
-    },
-    {
-      key: "drawWave",
-      value: function drawWave(ctx, points, alpha, waveColor) {
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.beginPath();
-        var prevX = points[0].x;
-        var prevY = points[0].y;
-        ctx.moveTo(prevX, prevY);
-        ctx.fillStyle = waveColor;
-        for (var i = 1; i < this.totalPoints; i++) {
-          var cx = (prevX + points[i].x) / 2;
-          var cy = (prevY + points[i].y) / 2;
-          ctx.quadraticCurveTo(prevX, prevY, cx, cy);
-          prevX = points[i].x;
-          prevY = points[i].y;
-        }
-        ctx.lineTo(prevX, prevY);
-        ctx.lineTo(this.stageWidth, 0);
-        ctx.lineTo(0, 0);
-        ctx.fill();
-        ctx.closePath();
-        ctx.restore();
-      },
-    },
-  ]);
-})();
-
-// ==========================================
-// 6. WaveGroup 클래스
-// ==========================================
-var WaveGroup = /*#__PURE__*/ (function () {
-  function WaveGroup() {
-    _classCallCheck(this, WaveGroup);
-    this.totalWaves = 3;
-    this.waves = [
-      new Wave(1, 6, "#8fd4ff"),
-      new Wave(1, 6, "#0088ff"),
-      new Wave(1, 6, "#0080ff"),
-    ];
-    this.waves[0].delay = 40;
-    this.waves[1].delay = 20;
-    this.waves[2].delay = 0;
-    this.isResetting = false;
-    this.resetFinished = false;
-    this.hasTriggeredClear = false;
-
-    this.tubes = [];
+  if (this.waveGroup.resetFinished) {
+    this.drawing.clear();
+    this.waveGroup.resetFinished = false;
   }
-  return _createClass(WaveGroup, [
-    {
-      key: "resize",
-      value: function resize(stageWidth, stageHeight) {
-        this.stageWidth = stageWidth;
-        this.stageHeight = stageHeight;
-        for (var i = 0; i < this.totalWaves; i++) {
-          var waves = this.waves[i];
-          waves.resize(this.stageWidth, this.stageHeight);
-        }
-      },
-    },
-    {
-      key: "update",
-      value: function update() {
-        for (var i = this.tubes.length - 1; i >= 0; i--) {
-          var tube = this.tubes[i];
-          tube.update(this.isResetting);
-          if (tube.isOut()) {
-            this.tubes.splice(i, 1);
-          }
-        }
-      },
-    },
-    {
-      key: "draw",
-      value: function draw(ctx, waveReset) {
-        var _iterator = _createForOfIteratorHelper(this.waves),
-          _step;
-        try {
-          for (_iterator.s(); !(_step = _iterator.n()).done; ) {
-            var wave = _step.value;
-            wave.draw(ctx);
-          }
-        } catch (err) {
-          _iterator.e(err);
-        } finally {
-          _iterator.f();
-        }
 
-        var _iterator2 = _createForOfIteratorHelper(this.tubes),
-          _step2;
-        try {
-          for (_iterator2.s(); !(_step2 = _iterator2.n()).done; ) {
-            var _tube = _step2.value;
-            _tube.draw(ctx);
-          }
-        } catch (err) {
-          _iterator2.e(err);
-        } finally {
-          _iterator2.f();
-        }
-
-        if (waveReset && !this.isResetting) {
-          this.isResetting = true;
-          this.hasTriggeredClear = false;
-          for (var i = 0; i < this.totalWaves; i++) {
-            this.waves[i].resetWave();
-          }
-          var radius = 50;
-          var x = Math.random() * (this.stageWidth - radius * 2) + radius;
-          var y = -60 / 2;
-          var closestPoint = null;
-          var closestDistance = Infinity;
-          var _iterator3 = _createForOfIteratorHelper(this.waves[2].points),
-            _step3;
-          try {
-            for (_iterator3.s(); !(_step3 = _iterator3.n()).done; ) {
-              var point = _step3.value;
-              var distance = Math.abs(x - point.x);
-              if (distance < closestDistance) {
-                closestDistance = distance;
-                closestPoint = point;
-              }
-            }
-          } catch (err) {
-            _iterator3.e(err);
-          } finally {
-            _iterator3.f();
-          }
-          var tube = new Tube(x, y, radius, closestPoint);
-          this.tubes.push(tube);
-        }
-        this.resetFinished = false;
-
-        if (this.isResetting) {
-          for (var _i = 0; _i < this.totalWaves; _i++) {
-            if (this.waves[_i].resetFinished) {
-              if (!this.hasTriggeredClear) {
-                this.resetFinished = true;
-                this.hasTriggeredClear = true;
-              }
-              this.waves[_i].resetFinished = false;
-            }
-          }
-
-          var anyResetting = false;
-          for (var _i2 = 0; _i2 < this.totalWaves; _i2++) {
-            if (this.waves[_i2].isResetWave) {
-              anyResetting = true;
-              break;
-            }
-          }
-
-          if (!anyResetting) {
-            this.isResetting = false;
-          }
-        }
-      },
-    },
-  ]);
-})();
-
-// ==========================================
-// 7. App 클래스 및 메인 실행 로직
-// ==========================================
-var App = /*#__PURE__*/ (function () {
-  function App() {
-    _classCallCheck(this, App);
-    this.waveCanvas = document.createElement("canvas");
-    this.waveCtx = this.waveCanvas.getContext("2d");
-    this.sandCanvas = document.createElement("canvas");
-    this.sandCtx = this.sandCanvas.getContext("2d");
-    this.drawCanvas = document.createElement("canvas");
-    this.drawCtx = this.drawCanvas.getContext("2d");
-
-    document.body.appendChild(this.sandCanvas);
-    document.body.appendChild(this.drawCanvas);
-    document.body.appendChild(this.waveCanvas);
-
-    this.waveGroup = new WaveGroup();
-    this.drawing = new Drawing(this.drawCtx);
-
-    window.addEventListener("resize", this.resize.bind(this), false);
-    this.resize();
-
-    requestAnimationFrame(this.animate.bind(this));
-  }
-  return _createClass(App, [
-    {
-      key: "resize",
-      value: function resize() {
-        this.stageWidth = document.body.clientWidth;
-        this.stageHeight = document.body.clientHeight;
-        this.waveCanvas.width = this.stageWidth * 2;
-        this.waveCanvas.height = this.stageHeight * 2;
-        this.waveCtx.scale(2, 2);
-        this.drawCanvas.width = this.stageWidth * 2;
-        this.drawCanvas.height = this.stageHeight * 2;
-        this.drawCtx.scale(2, 2);
-        this.waveGroup.resize(this.stageWidth, this.stageHeight);
-        this.drawing.resize(this.stageWidth, this.stageHeight);
-      },
-    },
-    {
-      key: "animate",
-      value: function animate(t) {
-        var waveReset = false;
-        if (this.drawing.hasDrawn === true) {
-          var idleTime = Date.now() - this.drawing.lastDrawTime;
-          waveReset = idleTime > 5000;
-        }
-        this.waveCtx.clearRect(0, 0, this.stageWidth, this.stageHeight);
-        this.waveGroup.update();
-        this.waveGroup.draw(this.waveCtx, waveReset);
-        if (this.waveGroup.resetFinished) {
-          this.drawing.clear();
-          this.waveGroup.resetFinished = false;
-        }
-        requestAnimationFrame(this.animate.bind(this));
-      },
-    },
-  ]);
-})();
+  requestAnimationFrame(function (t) {
+    self.animate(t);
+  });
+};
 
 window.onload = function () {
   new App();
