@@ -1,4 +1,25 @@
-// requestAnimationFrame 구형 브라우저 대응
+// ==========================================
+// 0. 아이패드 온스크린 에러 디버거 (최상단)
+// ==========================================
+window.onerror = function (msg, url, line, col, error) {
+  var div = document.getElementById("debug-log");
+  if (!div) {
+    div = document.createElement("div");
+    div.id = "debug-log";
+    div.style.cssText =
+      "position:fixed;top:0;left:0;width:100%;height:120px;background:rgba(0,0,0,0.85);color:#ff5555;z-index:99999;font-size:12px;overflow:auto;padding:8px;box-sizing:border-box;font-family:monospace;";
+    document.body.appendChild(div);
+  }
+  div.innerHTML +=
+    '<div style="margin-bottom:4px;">[Error] ' +
+    msg +
+    " (Line: " +
+    line +
+    ")</div>";
+  return false;
+};
+
+// requestAnimationFrame 대응
 window.requestAnimationFrame =
   window.requestAnimationFrame ||
   window.webkitRequestAnimationFrame ||
@@ -44,7 +65,7 @@ Tube.prototype.update = function (isResetting) {
   if (isResetting) {
     this.y += 2 * 0.9;
   } else {
-    this.y -= this.point.speed * 0.9;
+    this.y -= (this.point ? this.point.speed : 1) * 0.9;
   }
   this.time += 0.02;
   this.rotation = Math.sin(this.time) * 0.2;
@@ -110,19 +131,16 @@ Tube.prototype.draw = function (ctx) {
   ctx.translate(this.x, this.y);
   ctx.rotate(this.rotation);
 
-  // 클리핑 패스로 도넛 구멍 뚫기
   ctx.beginPath();
   ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
   ctx.arc(0, 0, 28, 0, Math.PI * 2, true);
   ctx.clip();
 
-  // 빨간 바탕
   ctx.fillStyle = "#F2360C";
   ctx.beginPath();
   ctx.arc(0, 0, this.radius, 0, Math.PI * 2, false);
   ctx.fill();
 
-  // 흰색 줄무늬 4개
   ctx.fillStyle = "#F2F2F2";
   ctx.beginPath();
   ctx.moveTo(0, 0);
@@ -163,10 +181,16 @@ function Drawing(ctx) {
   this.isDrawing = false;
 
   function getPos(e) {
-    if (e.touches && e.touches.length > 0) {
-      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    var t =
+      e.touches && e.touches.length > 0
+        ? e.touches[0]
+        : e.changedTouches && e.changedTouches.length > 0
+          ? e.changedTouches[0]
+          : null;
+    if (t) {
+      return { x: t.clientX, y: t.clientY };
     }
-    return { x: e.clientX, y: e.clientY };
+    return { x: e.clientX || 0, y: e.clientY || 0 };
   }
 
   var onStart = function (event) {
@@ -420,12 +444,14 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
     var closestPoint = null;
     var closestDistance = Infinity;
 
-    for (var m = 0; m < this.waves[2].points.length; m++) {
-      var point = this.waves[2].points[m];
-      var distance = Math.abs(x - point.x);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestPoint = point;
+    if (this.waves[2] && this.waves[2].points) {
+      for (var m = 0; m < this.waves[2].points.length; m++) {
+        var point = this.waves[2].points[m];
+        var distance = Math.abs(x - point.x);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPoint = point;
+        }
       }
     }
     this.tubes.push(new Tube(x, y, radius, closestPoint));
@@ -459,7 +485,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
 };
 
 // ==========================================
-// 6. App 클래스 및 메인 실행
+// 6. App 클래스
 // ==========================================
 function App() {
   this.waveCanvas = document.createElement("canvas");
@@ -492,8 +518,8 @@ function App() {
 }
 
 App.prototype.resize = function () {
-  this.stageWidth = document.body.clientWidth || window.innerWidth;
-  this.stageHeight = document.body.clientHeight || window.innerHeight;
+  this.stageWidth = window.innerWidth || document.body.clientWidth || 800;
+  this.stageHeight = window.innerHeight || document.body.clientHeight || 600;
 
   this.waveCanvas.width = this.stageWidth * 2;
   this.waveCanvas.height = this.stageHeight * 2;
