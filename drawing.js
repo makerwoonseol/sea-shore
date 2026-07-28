@@ -18,7 +18,7 @@ export class Drawing {
     };
     this.isDrawing = false;
 
-    window.addEventListener("mousemove", (event) => {
+    window.addEventListener("pointermove", (event) => {
       this.mouse.x = event.clientX;
       this.mouse.y = event.clientY;
 
@@ -38,13 +38,13 @@ export class Drawing {
       this.lastMouse.y = this.mouse.y;
     });
 
-    window.addEventListener("mousedown", (event) => {
+    window.addEventListener("pointerdown", (event) => {
       this.isDrawing = true;
       this.lastMouse.x = this.mouse.x;
       this.lastMouse.y = this.mouse.y;
     });
 
-    window.addEventListener("mouseup", (event) => {
+    window.addEventListener("pointerup", (event) => {
       this.isDrawing = false;
     });
   }
