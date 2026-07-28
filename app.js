@@ -3,7 +3,7 @@ window.requestAnimationFrame =
   window.requestAnimationFrame ||
   window.webkitRequestAnimationFrame ||
   function (callback) {
-    return setTimeout(callback, 1000 / 60);
+    return setTimeout(callback, 16);
   };
 
 // 1. Point 클래스
@@ -64,6 +64,8 @@ Tube.prototype.drawShadowRing = function (ctx) {
   var inner = 28;
   var deg = 0;
   var rad = 0;
+  var n1 = 0;
+  var n2 = 0;
   var noise = 0;
   var r = 0;
   var x = 0;
@@ -72,9 +74,9 @@ Tube.prototype.drawShadowRing = function (ctx) {
   ctx.beginPath();
   for (deg = 0; deg <= 360; deg += 6) {
     rad = (deg * Math.PI) / 180;
-    noise =
-      Math.sin(rad * 5 + this.time * 2.5) * 2 +
-      Math.sin(rad * 8 - this.time * 3.2) * 1.2;
+    n1 = Math.sin(rad * 5 + this.time * 2.5) * 2;
+    n2 = Math.sin(rad * 8 - this.time * 3.2) * 1.2;
+    noise = n1 + n2;
     r = outer + noise;
     x = Math.cos(rad) * r;
     y = Math.sin(rad) * r;
@@ -101,6 +103,8 @@ Tube.prototype.drawShadowRing = function (ctx) {
 };
 
 Tube.prototype.draw = function (ctx) {
+  var sector = Math.PI / 6;
+
   ctx.save();
   ctx.translate(this.x + 12, this.y + 12);
   ctx.rotate(this.rotation * 0.3);
@@ -128,32 +132,83 @@ Tube.prototype.draw = function (ctx) {
   ctx.fill();
 
   ctx.fillStyle = "#F2F2F2";
+
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.arc(0, 0, this.radius, 0, Math.PI / 6, false);
+  ctx.arc(0, 0, this.radius, 0, sector, false);
   ctx.fill();
 
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.arc(0, 0, this.radius, Math.PI, Math.PI + Math.PI / 6, false);
+  ctx.arc(0, 0, this.radius, Math.PI, Math.PI + sector, false);
   ctx.fill();
 
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.arc(0, 0, this.radius, -Math.PI / 2, -Math.PI / 2 + Math.PI / 6, false);
+  ctx.arc(0, 0, this.radius, -Math.PI / 2, -Math.PI / 2 + sector, false);
   ctx.fill();
 
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.arc(0, 0, this.radius, Math.PI / 2, Math.PI / 2 + Math.PI / 6, false);
+  ctx.arc(0, 0, this.radius, Math.PI / 2, Math.PI / 2 + sector, false);
   ctx.fill();
 
   ctx.restore();
 };
 
-// 3. Drawing 클래스
+// 3. Drawing 클래스 전용 헬퍼 함수
+var globalDrawingInstance = null;
+
+function getEventPos(e) {
+  if (e.touches && e.touches.length > 0) {
+    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  if (e.changedTouches && e.changedTouches.length > 0) {
+    return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  }
+  return { x: e.clientX || 0, y: e.clientY || 0 };
+}
+
+function handleStart(event) {
+  if (!globalDrawingInstance) return;
+  globalDrawingInstance.isDrawing = true;
+  var pos = getEventPos(event);
+  globalDrawingInstance.mouse.x = pos.x;
+  globalDrawingInstance.mouse.y = pos.y;
+  globalDrawingInstance.lastMouse.x = pos.x;
+  globalDrawingInstance.lastMouse.y = pos.y;
+}
+
+function handleMove(event) {
+  if (!globalDrawingInstance) return;
+  var pos = getEventPos(event);
+  var dx = 0;
+  var dy = 0;
+  var i = 0;
+  var x = 0;
+  var y = 0;
+
+  globalDrawingInstance.mouse.x = pos.x;
+  globalDrawingInstance.mouse.y = pos.y;
+  if (globalDrawingInstance.isDrawing === true) {
+    dx = globalDrawingInstance.mouse.x - globalDrawingInstance.lastMouse.x;
+    dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
+    for (i = 0; i <= 10; i++) {
+      x = globalDrawingInstance.lastMouse.x + (dx / 10) * i;
+      y = globalDrawingInstance.lastMouse.y + (dy / 10) * i;
+      globalDrawingInstance.drawBrush(x, y);
+    }
+  }
+  globalDrawingInstance.lastMouse.x = globalDrawingInstance.mouse.x;
+  globalDrawingInstance.lastMouse.y = globalDrawingInstance.mouse.y;
+}
+
+function handleEnd() {
+  if (!globalDrawingInstance) return;
+  globalDrawingInstance.isDrawing = false;
+}
+
 function Drawing(ctx) {
-  var self = this;
   this.ctx = ctx;
   this.ctx.lineWidth = 8;
   this.ctx.lineCap = "round";
@@ -164,51 +219,7 @@ function Drawing(ctx) {
   this.lastMouse = { x: 0, y: 0 };
   this.isDrawing = false;
 
-  function getPos(e) {
-    if (e.touches && e.touches.length > 0) {
-      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }
-    if (e.changedTouches && e.changedTouches.length > 0) {
-      return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-    }
-    return { x: e.clientX || 0, y: e.clientY || 0 };
-  }
-
-  function handleStart(event) {
-    self.isDrawing = true;
-    var pos = getPos(event);
-    self.mouse.x = pos.x;
-    self.mouse.y = pos.y;
-    self.lastMouse.x = pos.x;
-    self.lastMouse.y = pos.y;
-  }
-
-  function handleMove(event) {
-    var pos = getPos(event);
-    var dx = 0;
-    var dy = 0;
-    var i = 0;
-    var x = 0;
-    var y = 0;
-
-    self.mouse.x = pos.x;
-    self.mouse.y = pos.y;
-    if (self.isDrawing === true) {
-      dx = self.mouse.x - self.lastMouse.x;
-      dy = self.mouse.y - self.lastMouse.y;
-      for (i = 0; i <= 10; i++) {
-        x = self.lastMouse.x + (dx / 10) * i;
-        y = self.lastMouse.y + (dy / 10) * i;
-        self.drawBrush(x, y);
-      }
-    }
-    self.lastMouse.x = self.mouse.x;
-    self.lastMouse.y = self.mouse.y;
-  }
-
-  function handleEnd() {
-    self.isDrawing = false;
-  }
+  globalDrawingInstance = this;
 
   window.addEventListener("mousedown", handleStart, false);
   window.addEventListener("mousemove", handleMove, false);
@@ -444,6 +455,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
   var n = 0;
   var p = 0;
   var radius = 50;
+  var availWidth = 0;
   var x = 0;
   var y = -30;
   var closestPoint = null;
@@ -466,7 +478,9 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
     for (k = 0; k < this.totalWaves; k++) {
       this.waves[k].resetWave();
     }
-    x = Math.random() * (this.stageWidth - radius * 2) + radius;
+
+    availWidth = this.stageWidth - radius * 2;
+    x = Math.random() * availWidth + radius;
 
     if (this.waves[2] && this.waves[2].points) {
       for (m = 0; m < this.waves[2].points.length; m++) {
@@ -508,10 +522,22 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
   }
 };
 
-// 6. App 클래스
-function App() {
-  var self = this;
+// 6. App 클래스 전용 헬퍼 함수
+var globalAppInstance = null;
 
+function onAppResize() {
+  if (globalAppInstance) {
+    globalAppInstance.resize();
+  }
+}
+
+function onAppFrame(t) {
+  if (globalAppInstance) {
+    globalAppInstance.animate(t);
+  }
+}
+
+function App() {
   this.waveCanvas = document.createElement("canvas");
   this.waveCtx = this.waveCanvas.getContext("2d");
   this.sandCanvas = document.createElement("canvas");
@@ -526,21 +552,13 @@ function App() {
   this.waveGroup = new WaveGroup();
   this.drawing = new Drawing(this.drawCtx);
 
-  function onResize() {
-    self.resize();
-  }
+  globalAppInstance = this;
 
-  function onFrame(t) {
-    self.animate(t);
-  }
-
-  this.onFrameCallback = onFrame;
-
-  window.addEventListener("resize", onResize, false);
+  window.addEventListener("resize", onAppResize, false);
 
   this.resize();
 
-  window.requestAnimationFrame(this.onFrameCallback);
+  window.requestAnimationFrame(onAppFrame);
 }
 
 App.prototype.resize = function () {
@@ -578,7 +596,7 @@ App.prototype.animate = function (t) {
     this.waveGroup.resetFinished = false;
   }
 
-  window.requestAnimationFrame(this.onFrameCallback);
+  window.requestAnimationFrame(onAppFrame);
 };
 
 window.onload = function () {
