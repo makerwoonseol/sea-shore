@@ -1,15 +1,27 @@
 export class Point {
-  constructor(index, x, y) {
+  constructor(index, x, y, speed) {
     this.x = x;
     this.y = y;
     this.fixedY = y;
-    this.speed = 0.05;
-    this.cur = index; //현재 점의 번호
-    this.maxHeight = Math.random() * 100 + 150;
+    this.speed = speed;
+    this.cur = index;
+
+    this.targetY = 500 + Math.random() * 200;
   }
 
   update() {
-    this.cur += this.speed;
-    this.y = this.fixedY + Math.sin(this.cur) * this.maxHeight;
+    if (this.y < this.targetY) {
+      this.y += this.speed * 2;
+
+      if (this.y > this.targetY) {
+        this.y = this.targetY;
+      }
+    } else if (this.y > this.targetY) {
+      this.y -= this.speed;
+
+      if (this.y < this.targetY) {
+        this.y = this.targetY;
+      }
+    }
   }
 }
