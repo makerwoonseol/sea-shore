@@ -32,31 +32,34 @@ function Tube(x, y, radius, point) {
   this.x = x;
   this.y = y;
   this.radius = radius;
-  this.point = point;
+  this.point = point; // 연결된 파도의 Point 객체
   this.time = 0;
   this.rotation = 0;
 }
 
 Tube.prototype.update = function (isResetting) {
-  var speedVal = 1;
-  if (this.point) {
-    speedVal = this.point.speed;
-  }
-  if (isResetting) {
-    this.y = this.y + 1.8;
-  } else {
-    this.y = this.y - speedVal * 0.9;
-  }
-  this.time = this.time + 0.02;
+  this.time = this.time + 0.03;
   this.rotation = Math.sin(this.time) * 0.2;
+
+  // 파도 포인트(Point) Y좌표에 튜브 위치를 완벽 동기화
+  if (this.point) {
+    var targetY = this.point.y - this.radius * 0.2;
+    this.y = this.y + (targetY - this.y) * 0.15;
+  } else {
+    if (isResetting) {
+      this.y = this.y + 2.5;
+    } else {
+      this.y = this.y - 1.2;
+    }
+  }
 };
 
 Tube.prototype.isOut = function () {
   var totalY = this.y + this.radius * 2;
-  return totalY < 0;
+  return totalY < -50;
 };
 
-/* 초경량화 그림자 처리 (삼각함수 루프 전면 제거) */
+/* 경량화 원형 그림자 */
 Tube.prototype.drawShadowRing = function (ctx) {
   ctx.beginPath();
   ctx.arc(0, 0, this.radius + 3, 0, Math.PI * 2, false);
@@ -154,6 +157,8 @@ function handleMove(event) {
   var pos = getEventPos(event);
   var dx = 0;
   var dy = 0;
+  var dist = 0;
+  var steps = 0;
   var i = 0;
   var x = 0;
   var y = 0;
@@ -163,10 +168,15 @@ function handleMove(event) {
   if (globalDrawingInstance.isDrawing === true) {
     dx = globalDrawingInstance.mouse.x - globalDrawingInstance.lastMouse.x;
     dy = globalDrawingInstance.mouse.y - globalDrawingInstance.lastMouse.y;
-    for (i = 0; i <= 3; i = i + 1) {
-      x = globalDrawingInstance.lastMouse.x + dx * 0.33 * i;
-      y = globalDrawingInstance.lastMouse.y + dy * 0.33 * i;
-      globalDrawingInstance.drawBrush(x, y);
+    dist = Math.sqrt(dx * dx + dy * dy);
+
+    // 이동 거리에 따라 보간 단계 결정 (빠를수록 매끄럽게 보간)
+    steps = Math.max(Math.floor(dist * 0.4), 3);
+
+    for (i = 0; i <= steps; i = i + 1) {
+      x = globalDrawingInstance.lastMouse.x + (dx / steps) * i;
+      y = globalDrawingInstance.lastMouse.y + (dy / steps) * i;
+      globalDrawingInstance.drawBrush(x, y, dist);
     }
   }
   globalDrawingInstance.lastMouse.x = globalDrawingInstance.mouse.x;
@@ -207,17 +217,38 @@ Drawing.prototype.resize = function (stageWidth, stageHeight) {
   this.stageHeight = stageHeight;
 };
 
-Drawing.prototype.drawBrush = function (x, y) {
-  var px = x + Math.random() * 10 - 5;
-  var py = y + Math.random() * 10 - 5;
+/* 진하고 다양해진 모래 입자 브러쉬 연출 */
+Drawing.prototype.drawBrush = function (x, y, speed) {
+  var particleCount = 10;
+  var spread = 6;
+  var i = 0;
+  var px = 0;
+  var py = 0;
+  var r = 0;
+
+  // 속도에 따른 반응: 빠르게 그리면 산란 효과, 천천히 그리면 빽빽한 밀도
+  if (speed > 12) {
+    spread = 11;
+    particleCount = 6;
+  } else if (speed < 4) {
+    spread = 4;
+    particleCount = 14;
+  }
 
   this.hasDrawn = true;
   this.lastDrawTime = new Date().getTime();
 
-  this.ctx.beginPath();
-  this.ctx.arc(px, py, 1.5, 0, Math.PI * 2, false);
   this.ctx.fillStyle = "#e8dfc8";
-  this.ctx.fill();
+
+  for (i = 0; i < particleCount; i = i + 1) {
+    px = x + Math.random() * spread * 2 - spread;
+    py = y + Math.random() * spread * 2 - spread;
+    r = Math.random() * 1.5 + 1.2; // 1.2px ~ 2.7px 다양한 입자 크기
+
+    this.ctx.beginPath();
+    this.ctx.arc(px, py, r, 0, Math.PI * 2, false);
+    this.ctx.fill();
+  }
 };
 
 Drawing.prototype.clear = function () {
@@ -411,9 +442,9 @@ WaveGroup.prototype.update = function () {
 WaveGroup.prototype.draw = function (ctx, waveReset) {
   var i = 0;
   var radius = 50;
-  var availWidth = 0;
-  var x = 0;
-  var y = -30;
+  var targetWave = null;
+  var pointIdx = 0;
+  var selectedPoint = null;
 
   for (i = 0; i < this.waves.length; i = i + 1) {
     this.waves[i].draw(ctx);
@@ -430,9 +461,17 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
       this.waves[i].resetWave();
     }
 
-    availWidth = this.stageWidth - radius * 2;
-    x = Math.random() * availWidth + radius;
-    this.tubes.push(new Tube(x, y, radius, null));
+    // 맨 앞 파도(waves[0])의 포인트 중 하나를 연결 지점으로 지정
+    targetWave = this.waves[0];
+    if (targetWave && targetWave.points.length > 0) {
+      pointIdx = Math.floor(Math.random() * targetWave.points.length);
+      selectedPoint = targetWave.points[pointIdx];
+
+      // 튜브를 해당 파도 포인트 X위치에 배치하고 Point 객체를 전달
+      this.tubes.push(
+        new Tube(selectedPoint.x, selectedPoint.y, radius, selectedPoint),
+      );
+    }
   }
 
   this.resetFinished = false;
@@ -470,7 +509,6 @@ function onAppResize() {
   }
 }
 
-/* 초당 프레임 스킵을 통한 CPU/GPU 부하 완화 (30~40fps 렌더링 최적화) */
 var lastFrameTime = 0;
 function onAppFrame(t) {
   if (globalAppInstance) {
