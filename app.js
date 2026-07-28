@@ -1,25 +1,4 @@
-// ==========================================
-// 0. 아이패드 온스크린 에러 디버거 (최상단)
-// ==========================================
-window.onerror = function (msg, url, line, col, error) {
-  var div = document.getElementById("debug-log");
-  if (!div) {
-    div = document.createElement("div");
-    div.id = "debug-log";
-    div.style.cssText =
-      "position:fixed;top:0;left:0;width:100%;height:120px;background:rgba(0,0,0,0.85);color:#ff5555;z-index:99999;font-size:12px;overflow:auto;padding:8px;box-sizing:border-box;font-family:monospace;";
-    document.body.appendChild(div);
-  }
-  div.innerHTML +=
-    '<div style="margin-bottom:4px;">[Error] ' +
-    msg +
-    " (Line: " +
-    line +
-    ")</div>";
-  return false;
-};
-
-// requestAnimationFrame 대응
+// requestAnimationFrame 구형 폴리필
 window.requestAnimationFrame =
   window.requestAnimationFrame ||
   window.webkitRequestAnimationFrame ||
@@ -27,9 +6,7 @@ window.requestAnimationFrame =
     return setTimeout(callback, 1000 / 60);
   };
 
-// ==========================================
 // 1. Point 클래스
-// ==========================================
 function Point(index, x, y, speed) {
   this.x = x;
   this.y = y;
@@ -49,9 +26,7 @@ Point.prototype.update = function () {
   }
 };
 
-// ==========================================
 // 2. Tube 클래스
-// ==========================================
 function Tube(x, y, radius, point) {
   this.x = x;
   this.y = y;
@@ -78,28 +53,29 @@ Tube.prototype.isOut = function () {
 Tube.prototype.drawShadowRing = function (ctx) {
   var outer = this.radius + 3;
   var inner = 28;
+  var deg, rad, noise, r, x, y;
 
   ctx.beginPath();
-  for (var deg = 0; deg <= 360; deg += 6) {
-    var rad = (deg * Math.PI) / 180;
-    var noise =
+  for (deg = 0; deg <= 360; deg += 6) {
+    rad = (deg * Math.PI) / 180;
+    noise =
       Math.sin(rad * 5 + this.time * 2.5) * 2 +
       Math.sin(rad * 8 - this.time * 3.2) * 1.2;
-    var r = outer + noise;
-    var x = Math.cos(rad) * r;
-    var y = Math.sin(rad) * r;
+    r = outer + noise;
+    x = Math.cos(rad) * r;
+    y = Math.sin(rad) * r;
 
     if (deg === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.closePath();
 
-  for (var deg = 360; deg >= 0; deg -= 6) {
-    var rad = (deg * Math.PI) / 180;
-    var noise = Math.sin(rad * 4 + this.time * 1.7) * 1.5;
-    var r = inner + noise;
-    var x = Math.cos(rad) * r;
-    var y = Math.sin(rad) * r;
+  for (deg = 360; deg >= 0; deg -= 6) {
+    rad = (deg * Math.PI) / 180;
+    noise = Math.sin(rad * 4 + this.time * 1.7) * 1.5;
+    r = inner + noise;
+    x = Math.cos(rad) * r;
+    y = Math.sin(rad) * r;
 
     ctx.lineTo(x, y);
   }
@@ -115,16 +91,9 @@ Tube.prototype.draw = function (ctx) {
   ctx.globalAlpha = 0.22;
   ctx.fillStyle = "#001122";
 
-  if ("filter" in ctx) {
-    ctx.filter = "blur(10px)";
-  }
-
   this.drawShadowRing(ctx);
   ctx.restore();
 
-  if ("filter" in ctx) {
-    ctx.filter = "none";
-  }
   ctx.globalAlpha = 1;
 
   ctx.save();
@@ -165,9 +134,7 @@ Tube.prototype.draw = function (ctx) {
   ctx.restore();
 };
 
-// ==========================================
 // 3. Drawing 클래스
-// ==========================================
 function Drawing(ctx) {
   var self = this;
   this.ctx = ctx;
@@ -223,13 +190,13 @@ function Drawing(ctx) {
     self.isDrawing = false;
   };
 
-  window.addEventListener("mousedown", onStart);
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onEnd);
+  window.addEventListener("mousedown", onStart, false);
+  window.addEventListener("mousemove", onMove, false);
+  window.addEventListener("mouseup", onEnd, false);
 
-  window.addEventListener("touchstart", onStart);
-  window.addEventListener("touchmove", onMove);
-  window.addEventListener("touchend", onEnd);
+  window.addEventListener("touchstart", onStart, false);
+  window.addEventListener("touchmove", onMove, false);
+  window.addEventListener("touchend", onEnd, false);
 }
 
 Drawing.prototype.resize = function (stageWidth, stageHeight) {
@@ -260,9 +227,7 @@ Drawing.prototype.clear = function () {
   this.hasDrawn = false;
 };
 
-// ==========================================
 // 4. Wave 클래스
-// ==========================================
 function Wave(index, totalPoints, color) {
   this.index = index;
   this.totalPoints = totalPoints;
@@ -320,11 +285,12 @@ Wave.prototype.resetWave = function () {
 };
 
 Wave.prototype.draw = function (ctx) {
+  var i, j, k;
   if (this.delay > 0) {
     this.delay--;
     return;
   }
-  for (var i = this.trails.length - 1; i >= 0; i--) {
+  for (i = this.trails.length - 1; i >= 0; i--) {
     var trail = this.trails[i];
     this.drawWave(ctx, trail.points, trail.alpha, this.color);
     trail.alpha -= 0.001;
@@ -333,7 +299,7 @@ Wave.prototype.draw = function (ctx) {
     }
   }
   var arrivedCount = 0;
-  for (var j = 0; j < this.totalPoints; j++) {
+  for (j = 0; j < this.totalPoints; j++) {
     if (this.points[j].y === this.points[j].targetY) {
       arrivedCount++;
     }
@@ -344,7 +310,7 @@ Wave.prototype.draw = function (ctx) {
 
   if (arrivedCount === this.totalPoints) {
     var trailPoints = [];
-    for (var k = 0; k < this.totalPoints; k++) {
+    for (k = 0; k < this.totalPoints; k++) {
       trailPoints.push({ x: this.points[k].x, y: this.points[k].y });
     }
     if (this.isResetWave) {
@@ -386,9 +352,7 @@ Wave.prototype.drawWave = function (ctx, points, alpha, waveColor) {
   ctx.restore();
 };
 
-// ==========================================
 // 5. WaveGroup 클래스
-// ==========================================
 function WaveGroup() {
   this.totalWaves = 3;
   this.waves = [
@@ -424,18 +388,19 @@ WaveGroup.prototype.update = function () {
 };
 
 WaveGroup.prototype.draw = function (ctx, waveReset) {
-  for (var i = 0; i < this.waves.length; i++) {
+  var i, j, k, m, n, p;
+  for (i = 0; i < this.waves.length; i++) {
     this.waves[i].draw(ctx);
   }
 
-  for (var j = 0; j < this.tubes.length; j++) {
+  for (j = 0; j < this.tubes.length; j++) {
     this.tubes[j].draw(ctx);
   }
 
   if (waveReset && !this.isResetting) {
     this.isResetting = true;
     this.hasTriggeredClear = false;
-    for (var k = 0; k < this.totalWaves; k++) {
+    for (k = 0; k < this.totalWaves; k++) {
       this.waves[k].resetWave();
     }
     var radius = 50;
@@ -445,7 +410,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
     var closestDistance = Infinity;
 
     if (this.waves[2] && this.waves[2].points) {
-      for (var m = 0; m < this.waves[2].points.length; m++) {
+      for (m = 0; m < this.waves[2].points.length; m++) {
         var point = this.waves[2].points[m];
         var distance = Math.abs(x - point.x);
         if (distance < closestDistance) {
@@ -460,7 +425,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
   this.resetFinished = false;
 
   if (this.isResetting) {
-    for (var n = 0; n < this.totalWaves; n++) {
+    for (n = 0; n < this.totalWaves; n++) {
       if (this.waves[n].resetFinished) {
         if (!this.hasTriggeredClear) {
           this.resetFinished = true;
@@ -471,7 +436,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
     }
 
     var anyResetting = false;
-    for (var p = 0; p < this.totalWaves; p++) {
+    for (p = 0; p < this.totalWaves; p++) {
       if (this.waves[p].isResetWave) {
         anyResetting = true;
         break;
@@ -484,9 +449,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
   }
 };
 
-// ==========================================
 // 6. App 클래스
-// ==========================================
 function App() {
   this.waveCanvas = document.createElement("canvas");
   this.waveCtx = this.waveCanvas.getContext("2d");
@@ -512,7 +475,7 @@ function App() {
   );
   this.resize();
 
-  requestAnimationFrame(function (t) {
+  window.requestAnimationFrame(function (t) {
     self.animate(t);
   });
 }
@@ -549,7 +512,7 @@ App.prototype.animate = function (t) {
     this.waveGroup.resetFinished = false;
   }
 
-  requestAnimationFrame(function (t) {
+  window.requestAnimationFrame(function (t) {
     self.animate(t);
   });
 };
