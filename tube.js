@@ -4,11 +4,9 @@ export class Tube {
     this.y = y;
     this.radius = radius;
     this.point = point;
-
     this.time = 0;
     this.rotation = 0;
   }
-
   update(isResetting) {
     if (isResetting) {
       this.y += 2 * 0.9;
@@ -16,79 +14,51 @@ export class Tube {
       this.y -= this.point.speed * 0.9;
     }
     this.time += 0.02;
-
     this.rotation = Math.sin(this.time) * 0.2;
   }
-
   isOut() {
     return this.y + this.radius * 2 < 0;
     this.rotation += 0.2;
   }
-
   drawShadowRing(ctx) {
     const outer = this.radius + 3;
     const inner = 28;
-
     ctx.beginPath();
-
     for (let deg = 0; deg <= 360; deg += 6) {
-      const rad = (deg * Math.PI) / 180;
-
-      const noise =
-        Math.sin(rad * 5 + this.time * 2.5) * 2 +
-        Math.sin(rad * 8 - this.time * 3.2) * 1.2;
-
+      const rad = deg * Math.PI / 180;
+      const noise = Math.sin(rad * 5 + this.time * 2.5) * 2 + Math.sin(rad * 8 - this.time * 3.2) * 1.2;
       const r = outer + noise;
-
       const x = Math.cos(rad) * r;
       const y = Math.sin(rad) * r;
-
-      if (deg === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      if (deg === 0) ctx.moveTo(x, y);else ctx.lineTo(x, y);
     }
-
     ctx.closePath();
-
     for (let deg = 360; deg >= 0; deg -= 6) {
-      const rad = (deg * Math.PI) / 180;
-
+      const rad = deg * Math.PI / 180;
       const noise = Math.sin(rad * 4 + this.time * 1.7) * 1.5;
-
       const r = inner + noise;
-
       const x = Math.cos(rad) * r;
       const y = Math.sin(rad) * r;
-
       ctx.lineTo(x, y);
     }
-
     ctx.closePath();
-
     ctx.fill();
   }
-
   draw(ctx) {
     ctx.save();
-
     ctx.translate(this.x + 12, this.y + 12);
 
     // 그림자는 회전 안 해도 되고,
     // 살짝만 따라가게 하려면 아래 한 줄 추가
     ctx.rotate(this.rotation * 0.3);
-
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = "#001122";
     ctx.filter = "blur(10px)";
-
     this.drawShadowRing(ctx);
-
     ctx.restore();
-
     ctx.filter = "none";
     ctx.globalAlpha = 1;
-
     ctx.save();
-
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
 
