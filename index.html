@@ -9,7 +9,6 @@
     <title>Wave Animation</title>
     <link rel="stylesheet" type="text/css" href="style.css" />
 
-    <!-- 1. HTML 상단에서 에러 감지기를 가장 먼저 실행시킵니다 -->
     <script>
       window.onerror = function (msg, url, line, col, error) {
         var div = document.getElementById("debug-log");
@@ -31,7 +30,7 @@
     </script>
   </head>
   <body>
-    <!-- 최신 버전 반영 확인용 초록색 태그 -->
+    <!-- 최신 버전 확인용 초록색 태그 -->
     <div
       style="
         position: fixed;
@@ -45,10 +44,10 @@
         font-family: monospace;
       "
     >
-      v1.0.5
+      v1.0.6
     </div>
 
-    <!-- 버전을 뒤에 붙여 아이패드 캐시 강제 새로고침 -->
-    <script src="app.js?v=1.0.5"></script>
+    <!-- 캐시 강제 새로고침용 v1.0.6 -->
+    <script src="app.js?v=1.0.6"></script>
   </body>
 </html>

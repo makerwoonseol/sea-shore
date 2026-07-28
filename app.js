@@ -1,4 +1,4 @@
-// requestAnimationFrame 구형 폴리필
+// requestAnimationFrame 폴리필
 window.requestAnimationFrame =
   window.requestAnimationFrame ||
   window.webkitRequestAnimationFrame ||
@@ -19,10 +19,14 @@ function Point(index, x, y, speed) {
 Point.prototype.update = function () {
   if (this.y < this.targetY) {
     this.y += this.speed * 2;
-    if (this.y > this.targetY) this.y = this.targetY;
+    if (this.y > this.targetY) {
+      this.y = this.targetY;
+    }
   } else if (this.y > this.targetY) {
     this.y -= this.speed;
-    if (this.y < this.targetY) this.y = this.targetY;
+    if (this.y < this.targetY) {
+      this.y = this.targetY;
+    }
   }
 };
 
@@ -37,10 +41,11 @@ function Tube(x, y, radius, point) {
 }
 
 Tube.prototype.update = function (isResetting) {
+  var speedVal = this.point ? this.point.speed : 1;
   if (isResetting) {
-    this.y += 2 * 0.9;
+    this.y += 1.8;
   } else {
-    this.y -= (this.point ? this.point.speed : 1) * 0.9;
+    this.y -= speedVal * 0.9;
   }
   this.time += 0.02;
   this.rotation = Math.sin(this.time) * 0.2;
@@ -65,8 +70,11 @@ Tube.prototype.drawShadowRing = function (ctx) {
     x = Math.cos(rad) * r;
     y = Math.sin(rad) * r;
 
-    if (deg === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    if (deg === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
   }
   ctx.closePath();
 
@@ -148,14 +156,11 @@ function Drawing(ctx) {
   this.isDrawing = false;
 
   function getPos(e) {
-    var t =
-      e.touches && e.touches.length > 0
-        ? e.touches[0]
-        : e.changedTouches && e.changedTouches.length > 0
-          ? e.changedTouches[0]
-          : null;
-    if (t) {
-      return { x: t.clientX, y: t.clientY };
+    if (e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
     }
     return { x: e.clientX || 0, y: e.clientY || 0 };
   }
@@ -405,7 +410,7 @@ WaveGroup.prototype.draw = function (ctx, waveReset) {
     }
     var radius = 50;
     var x = Math.random() * (this.stageWidth - radius * 2) + radius;
-    var y = -60 / 2;
+    var y = -30;
     var closestPoint = null;
     var closestDistance = Infinity;
 
@@ -473,6 +478,7 @@ function App() {
     },
     false,
   );
+
   this.resize();
 
   window.requestAnimationFrame(function (t) {
