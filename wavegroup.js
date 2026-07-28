@@ -5,23 +5,16 @@ import { Tube } from "./tube.js";
 export class WaveGroup {
   constructor() {
     this.totalWaves = 3;
-    this.waves = [
-      new Wave(1, 6, "#8fd4ff"),
-      new Wave(1, 6, "#0088ff"),
-      new Wave(1, 6, "#0080ff"),
-    ];
-
+    this.waves = [new Wave(1, 6, "#8fd4ff"), new Wave(1, 6, "#0088ff"), new Wave(1, 6, "#0080ff")];
     this.waves[0].delay = 40;
     this.waves[1].delay = 20;
     this.waves[2].delay = 0;
-
     this.isResetting = false;
     this.resetFinished = false;
     this.hasTriggeredClear = false; // 💡 리셋 중 clear를 한 번만 실행하기 위한 플래그 추가
 
     this.tubes = [];
   }
-
   resize(stageWidth, stageHeight) {
     this.stageWidth = stageWidth;
     this.stageHeight = stageHeight;
@@ -30,24 +23,19 @@ export class WaveGroup {
       waves.resize(this.stageWidth, this.stageHeight);
     }
   }
-
   update() {
     for (let i = this.tubes.length - 1; i >= 0; i--) {
       const tube = this.tubes[i];
-
       tube.update(this.isResetting);
-
       if (tube.isOut()) {
         this.tubes.splice(i, 1);
       }
     }
   }
-
   draw(ctx, waveReset) {
     for (const wave of this.waves) {
       wave.draw(ctx);
     }
-
     for (const tube of this.tubes) {
       tube.draw(ctx);
     }
@@ -59,27 +47,21 @@ export class WaveGroup {
       for (let i = 0; i < this.totalWaves; i++) {
         this.waves[i].resetWave();
       }
-
       const radius = 50;
       const x = Math.random() * (this.stageWidth - radius * 2) + radius;
       const y = -60 / 2;
-
       let closestPoint = null;
       let closestDistance = Infinity;
-
       for (const point of this.waves[2].points) {
         const distance = Math.abs(x - point.x);
-
         if (distance < closestDistance) {
           closestDistance = distance;
           closestPoint = point;
         }
       }
-
       const tube = new Tube(x, y, radius, closestPoint);
       this.tubes.push(tube);
     }
-
     this.resetFinished = false;
 
     // 2. 리셋 진행 중일 때의 로직 처리
